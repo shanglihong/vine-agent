@@ -11,37 +11,22 @@ import (
 
 const defaultTTL = 5 * time.Minute
 
-// SessionService
-type SessionService struct {
-	persist Repository
+// sessionService
+type sessionService struct {
+	persist SessionRepository
 	cache   *utils.TTLCache[*Session]
 }
 
-// SessionStoreOption 用于配置 SessionStore 服务的选项函数类型
-type SessionStoreOption func(*SessionService)
-
-// WithSessionTTL 配置缓存的生存时间 (Time To Live)。
-// 如果传入的 ttl <= 0，则表示不启用过期机制（即缓存永久有效）。
-func WithSessionTTL(ttl time.Duration) SessionStoreOption {
-	return func(s *SessionService) {
-		s.cache.SetTTL(ttl)
-	}
-}
-
-// NewSessionStore 创建一个包含缓存机制 of SessionStore 领域服务实例，支持配置过期时间 (TTL)
-func NewSessionStore(persist Repository, opts ...SessionStoreOption) *SessionService {
-	s := &SessionService{
+// NewSessionService 创建一个包含缓存机制的 sessionService 领域服务实例，返回 SessionService 接口
+func NewSessionService(persist SessionRepository) SessionService {
+	return &sessionService{
 		persist: persist,
 		cache:   utils.NewTTLCache[*Session](defaultTTL),
 	}
-	for _, opt := range opts {
-		opt(s)
-	}
-	return s
 }
 
 // Save 保存 Session 到物理存储中，并使内存缓存中的对应记录失效以保持数据一致性
-func (s *SessionService) Save(ctx context.Context, sess *Session) error {
+func (s *sessionService) Save(ctx context.Context, sess *Session) error {
 	if sess == nil {
 		return fmt.Errorf("session cannot be nil")
 	}
@@ -57,7 +42,7 @@ func (s *SessionService) Save(ctx context.Context, sess *Session) error {
 }
 
 // Get 首先尝试从并发安全内存缓存中读取 Session，如果未命中则穿透到底层物理持久化中读取并缓存
-func (s *SessionService) Get(ctx context.Context, id string) (*Session, error) {
+func (s *sessionService) Get(ctx context.Context, id string) (*Session, error) {
 	if sess, ok := s.cache.Get(id); ok {
 		return cloneSession(sess), nil
 	}
@@ -72,7 +57,7 @@ func (s *SessionService) Get(ctx context.Context, id string) (*Session, error) {
 }
 
 // Delete 从物理持久化中删除 Session，并清理内存缓存中的记录
-func (s *SessionService) Delete(ctx context.Context, id string) error {
+func (s *sessionService) Delete(ctx context.Context, id string) error {
 	if err := s.persist.Delete(ctx, id); err != nil {
 		return err // 直接透传底层 Repository 返回 of 领域错误
 	}
@@ -81,7 +66,7 @@ func (s *SessionService) Delete(ctx context.Context, id string) error {
 }
 
 // List 从物理持久化中拉取用户会话列表（不携带冗余的历史消息详情），此方法不走缓存
-func (s *SessionService) List(ctx context.Context, userID string) ([]*Session, error) {
+func (s *sessionService) List(ctx context.Context, userID string) ([]*Session, error) {
 	return s.persist.List(ctx, userID)
 }
 

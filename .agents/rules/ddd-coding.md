@@ -28,11 +28,10 @@ trigger: always_on
 
 领域服务
 - 领域服务只包含业务逻辑，作为不同的实体的编排动作
+- **接口与解耦规范**：领域服务对外应暴露接口契约（例如 `XxxService`），具体的实现类定义为私有的结构体（例如 `xxxService`），从而对调用方屏蔽内部细节。
+- **依赖注入与传递防护**：上层（如 `app` 应用层）在注入时必须仅依赖领域服务接口，从而消除对具体类依赖的装配传递。
+- **接口文件收拢**：领域的仓储接口（如 `XxxRepository`）与服务接口（如 `XxxService`）统一合并收拢在同包下的 `interface.go` 文件中管理，以提高内聚性。
 - 非主要流程行为通过领域消息进行解耦
-- 仅当业务行为跨越多个实体或需协调仓储时才引入；通过**构造函数注入** Repository 接口：
-  ```go
-  func NewXxxService(repo XxxRepository) *XxxService { return &XxxService{repo: repo} }
-  ```
 
 基础设施
 - 连接使用 `sync.Once` **惰性初始化**，在首次操作时建立，避免进程启动时阻塞
@@ -55,9 +54,10 @@ trigger: always_on
   }
   ```
 - **一键生成 Mock 与本地定位规范**：
-  在项目根目录运行 `go generate ./...` 一键生成所有 Mock。为了避免外部模块依赖及路径解析报错，请在接口文件上方使用 `-source` 参数声明 `go:generate`，并将 Mock 产物存放在接口所在目录的子包 `./mock` 中：
+  在项目根目录运行 `go generate ./...` 一键生成所有 Mock。为了避免外部模块依赖及路径解析报错，请在接口文件上方使用 `-source` 参数声明 `go:generate`，并将 Mock 产物存放在接口所在目录的子包 `./mock` 中。
+  为了防止因执行环境未全局安装 `mockgen` 工具而报错，推荐使用 `go run` 替代裸调用以实现零依赖的一键自动生成：
   ```go
-  //go:generate mockgen -source=interface_file.go -destination=./mock/interface_file_mock.go -package=mock
+  //go:generate go run github.com/golang/mock/mockgen -source=interface.go -destination=./mock/xxx_mock.go -package=mock
   ```
 - **规避测试循环导入 (Import Cycle)**：
   测试文件必须声明为**外部测试包**（如 `package xxx_test`）,私用方法测试放到一个独立的`_test.go`文件中。

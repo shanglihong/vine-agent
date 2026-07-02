@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	"vine-agent/domain/memory/session"
 	"vine-agent/domain/memory/session/mock"
@@ -19,9 +18,9 @@ func TestSessionService_Save(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockRepo := mock.NewMockRepository(ctrl)
+	mockRepo := mock.NewMockSessionRepository(ctrl)
 	// 设置 TTL 确保缓存有效，便于在测试中观察 Save 对缓存失效的作用
-	service := session.NewSessionStore(mockRepo, session.WithSessionTTL(10*time.Minute))
+	service := session.NewSessionService(mockRepo)
 	ctx := context.Background()
 
 	t.Run("nil session should return error", func(t *testing.T) {
@@ -72,8 +71,8 @@ func TestSessionService_Get(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockRepo := mock.NewMockRepository(ctrl)
-	service := session.NewSessionStore(mockRepo, session.WithSessionTTL(10*time.Minute))
+	mockRepo := mock.NewMockSessionRepository(ctrl)
+	service := session.NewSessionService(mockRepo)
 	ctx := context.Background()
 
 	t.Run("cache miss and read from persist successfully", func(t *testing.T) {
@@ -120,8 +119,8 @@ func TestSessionService_Delete(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockRepo := mock.NewMockRepository(ctrl)
-	service := session.NewSessionStore(mockRepo, session.WithSessionTTL(10*time.Minute))
+	mockRepo := mock.NewMockSessionRepository(ctrl)
+	service := session.NewSessionService(mockRepo)
 	ctx := context.Background()
 
 	t.Run("successful delete and cache invalidation", func(t *testing.T) {
@@ -159,8 +158,8 @@ func TestSessionService_List(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockRepo := mock.NewMockRepository(ctrl)
-	service := session.NewSessionStore(mockRepo)
+	mockRepo := mock.NewMockSessionRepository(ctrl)
+	service := session.NewSessionService(mockRepo)
 	ctx := context.Background()
 
 	t.Run("successful list", func(t *testing.T) {

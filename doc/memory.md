@@ -7,7 +7,7 @@ Memory 模块是系统的短期记忆管理中心，主要负责 AI 对话会话
 ## 1. 架构定位
 
 在系统的三层 DDD 架构中，Memory 模块的定位如下：
-- **领域层（Domain Layer）**：定义了会话实体 `Session`、仓储契约 `Repository` 接口、领域异常以及提供缓存加速与并发安全控制的领域服务 `SessionService`。
+- **领域层（Domain Layer）**：定义了会话实体 `Session`、仓储契约 `SessionRepository` 接口、领域异常以及提供缓存加速与并发安全控制的领域服务 `SessionService` 接口。
 - **基础设施层（Infrastructure Layer）**：实现具体的物理持久化适配器（如 SQLite 持久化），以及相关的并发安全连接管理。
 - **职责划分**：领域服务及实体主导业务决策（如缓存失效策略、会话状态流转、数据深拷贝等）；基础设施层则保持无状态，只负责物理存储和事务保障，严禁做业务决策。
 
@@ -34,11 +34,11 @@ Memory 模块是系统的短期记忆管理中心，主要负责 AI 对话会话
   - `GetLastEvolvedMsgCount()`: 获取上次完成偏好演进时的消息总数。
   - `UpdateLastEvolvedMsgCount()`: 更新已演进的消息数记录为当前消息列表长度。
 
-### 2.2 仓储契约：[Repository](../domain/memory/session/repository_interface.go)
+### 2.2 仓储契约：[SessionRepository](../domain/memory/session/interface.go)
 
 定义了 Session 物理持久化的多态契约接口，使领域服务能与具体数据库技术解耦：
 ```go
-type Repository interface {
+type SessionRepository interface {
 	Save(ctx context.Context, sess *Session) error
 	Get(ctx context.Context, id string) (*Session, error)
 	Delete(ctx context.Context, id string) error
@@ -46,10 +46,10 @@ type Repository interface {
 }
 ```
 
-### 2.3 领域服务：[SessionService](../domain/memory/session/session_service.go)
+### 2.3 领域服务接口：[SessionService](../domain/memory/session/interface.go)
 
-`SessionService`（由 `NewSessionStore` 构造）用于编排 Session 逻辑，主要职责包括：
-1. **二级缓存加速**：内置并发安全的 `utils.TTLCache` 缓存，支持配置缓存存活时间（通过 `WithSessionTTL` 选项）。
+领域服务 `SessionService` 接口定义了统一的业务操作，其具体实现由包内私有的 `sessionService`（定义在 [session_service.go](../domain/memory/session/session_service.go)）来承担，主要职责包括：
+1. **二级缓存加速**：内置并发安全的 `utils.TTLCache` 缓存，生存时间默认为 `5` 分钟，由服务内部管理。
 2. **读写策略**：
    - `Get`：首先查询缓存，若未命中则穿透至底层 Repository 并写入缓存。
    - `Save` / `Delete`：在物理存储操作成功后，使缓存中的对应记录失效，确保数据一致性。
@@ -77,7 +77,7 @@ type Repository interface {
 ### 4.1 Mock 生成与使用
 在仓储接口定义文件上方声明了 `go:generate` 指令：
 ```go
-//go:generate mockgen -source=repository_interface.go -destination=./mock/session_repository_mock.go -package=mock
+//go:generate go run github.com/golang/mock/mockgen -source=interface.go -destination=./mock/session_mock.go -package=mock
 ```
 - **生成命令**：在项目根目录运行 `go generate ./...` 即可一键生成 Mock。
 - **生成位置**：Mock 产物严格存放在接口所在目录的子包 `./mock` 中，避免污染上层代码。
