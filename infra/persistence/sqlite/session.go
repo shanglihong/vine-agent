@@ -28,7 +28,6 @@ func newSessionStoreWithDB(db *sql.DB) *SessionStore {
 	return &SessionStore{db: db}
 }
 
-
 // ==================== Session 仓储实现 (memory.SessionRepository) ====================
 
 // Save 保存或更新 Session 领域对象
@@ -45,10 +44,6 @@ func (r *SessionStore) Save(ctx context.Context, sess *session.Session) error {
 	metadataJSON, err := json.Marshal(sess.Metadata)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata for session %s: %w", sess.ID, err)
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to get database connection: %w", err)
 	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
