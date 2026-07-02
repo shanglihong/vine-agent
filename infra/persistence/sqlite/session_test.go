@@ -10,12 +10,9 @@ import (
 	"vine-agent/domain/message"
 )
 
-// newTestStore 返回基于共享内存 SQLite 的 SessionStore 实例，并清空数据以保证测试隔离
+// newTestStore 返回基于共享内存 SQLite 的 SessionStore 实例
 func newTestStore(t *testing.T) *SessionStore {
 	t.Helper()
-	if _, err := testDB.Exec("DELETE FROM sessions"); err != nil {
-		t.Fatalf("clear database: %v", err)
-	}
 	return newSessionStoreWithDB(testDB)
 }
 

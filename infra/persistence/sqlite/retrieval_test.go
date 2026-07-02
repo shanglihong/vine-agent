@@ -9,9 +9,6 @@ import (
 
 func newTestRetrievalStore(t *testing.T) *RetrievalStore {
 	t.Helper()
-	if _, err := testDB.Exec("DELETE FROM messages_fts"); err != nil {
-		t.Fatalf("clear messages_fts database: %v", err)
-	}
 	return newRetrievalStoreWithDB(testDB)
 }
 

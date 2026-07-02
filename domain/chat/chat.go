@@ -5,8 +5,9 @@ import (
 
 	"vine-agent/domain/message"
 	"vine-agent/domain/tool"
-
 )
+
+//go:generate go run github.com/golang/mock/mockgen -source=chat.go -destination=./mock/chat_mock.go -package=mock
 
 // ChatModel 统一定义大模型非流式与流式对话的抽象接口
 type ChatModel interface {

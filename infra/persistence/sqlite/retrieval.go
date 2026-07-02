@@ -13,9 +13,9 @@ type RetrievalStore struct {
 	db *sql.DB
 }
 
-// NewRetrievalStore 创建基于 SQLite 的 RetrievalRepository 仓储实现
-func NewRetrievalStore() (*RetrievalStore, error) {
-	db, err := getMemoryDB(MemoryDBPath())
+// NewRetrievalStore 创建基于 SQLite 的 RetrievalRepository 仓储实现，接收 dbPath 注入
+func NewRetrievalStore(dbPath string) (*RetrievalStore, error) {
+	db, err := getMemoryDB(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database connection: %w", err)
 	}

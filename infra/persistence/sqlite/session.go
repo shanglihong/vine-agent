@@ -16,8 +16,9 @@ type SessionStore struct {
 	db *sql.DB
 }
 
-func NewSessionStore() (*SessionStore, error) {
-	db, err := getMemoryDB(MemoryDBPath())
+// NewSessionStore 创建一个基于 SQLite 的 Session 仓储实现，接收 dbPath 注入
+func NewSessionStore(dbPath string) (*SessionStore, error) {
+	db, err := getMemoryDB(dbPath)
 	if err != nil {
 		return nil, err
 	}
