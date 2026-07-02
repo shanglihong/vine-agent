@@ -5,22 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"sync"
 	"time"
 
 	"vine-agent/domain/memory/session"
 	"vine-agent/domain/message"
-	"vine-agent/utils"
-
-	_ "modernc.org/sqlite"
-)
-
-var (
-	sessionDBOnce sync.Once
-	sessionDBConn *sql.DB
-	sessionDBErr  error
 )
 
 // SessionStore 提供对 SQLite sessions 数据库的具体存取操作
@@ -29,7 +17,7 @@ type SessionStore struct {
 }
 
 func NewSessionStore() (*SessionStore, error) {
-	db, err := getSessionDB()
+	db, err := getMemoryDB(MemoryDBPath())
 	if err != nil {
 		return nil, err
 	}
@@ -40,40 +28,6 @@ func newSessionStoreWithDB(db *sql.DB) *SessionStore {
 	return &SessionStore{db: db}
 }
 
-// openDatabase 打开指定路径的 SQLite 数据库，并确保其所在的父目录已创建
-func openDatabase(path string) (*sql.DB, error) {
-	dir := filepath.Dir(path)
-	if dir != "." && dir != "/" {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create database directory %s: %w", dir, err)
-		}
-	}
-	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open sqlite database: %w", err)
-	}
-	return db, nil
-}
-
-func getSessionDB() (*sql.DB, error) {
-	sessionDBOnce.Do(func() {
-		root := utils.FindProjectRoot()
-		var dbPath string
-		if root != "" {
-			dbPath = filepath.Join(root, "data", "memory")
-		} else {
-			dbPath = "data/memory"
-		}
-		db, err := openDatabase(dbPath)
-		if err != nil {
-			sessionDBErr = err
-			return
-		}
-
-		sessionDBConn = db
-	})
-	return sessionDBConn, sessionDBErr
-}
 
 // ==================== Session 仓储实现 (memory.SessionRepository) ====================
 
