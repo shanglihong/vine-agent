@@ -57,14 +57,14 @@ func (mr *MockChatModelMockRecorder) Generate(ctx, messages interface{}, opts ..
 }
 
 // Stream mocks base method.
-func (m *MockChatModel) Stream(ctx context.Context, messages []message.Message, opts ...chat.OptionFunc) (chat.StreamReader, error) {
+func (m *MockChatModel) Stream(ctx context.Context, messages []message.Message, opts ...chat.OptionFunc) (message.StreamMessageReader, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, messages}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Stream", varargs...)
-	ret0, _ := ret[0].(chat.StreamReader)
+	ret0, _ := ret[0].(message.StreamMessageReader)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -74,56 +74,4 @@ func (mr *MockChatModelMockRecorder) Stream(ctx, messages interface{}, opts ...i
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, messages}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stream", reflect.TypeOf((*MockChatModel)(nil).Stream), varargs...)
-}
-
-// MockStreamReader is a mock of StreamReader interface.
-type MockStreamReader struct {
-	ctrl     *gomock.Controller
-	recorder *MockStreamReaderMockRecorder
-}
-
-// MockStreamReaderMockRecorder is the mock recorder for MockStreamReader.
-type MockStreamReaderMockRecorder struct {
-	mock *MockStreamReader
-}
-
-// NewMockStreamReader creates a new mock instance.
-func NewMockStreamReader(ctrl *gomock.Controller) *MockStreamReader {
-	mock := &MockStreamReader{ctrl: ctrl}
-	mock.recorder = &MockStreamReaderMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockStreamReader) EXPECT() *MockStreamReaderMockRecorder {
-	return m.recorder
-}
-
-// Close mocks base method.
-func (m *MockStreamReader) Close() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Close")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Close indicates an expected call of Close.
-func (mr *MockStreamReaderMockRecorder) Close() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockStreamReader)(nil).Close))
-}
-
-// Recv mocks base method.
-func (m *MockStreamReader) Recv() (*message.Message, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Recv")
-	ret0, _ := ret[0].(*message.Message)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Recv indicates an expected call of Recv.
-func (mr *MockStreamReaderMockRecorder) Recv() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Recv", reflect.TypeOf((*MockStreamReader)(nil).Recv))
 }

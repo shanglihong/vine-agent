@@ -15,16 +15,7 @@ type ChatModel interface {
 	Generate(ctx context.Context, messages []message.Message, opts ...OptionFunc) (*message.Message, error)
 
 	// Stream 逐步增量生成响应 (流式)
-	Stream(ctx context.Context, messages []message.Message, opts ...OptionFunc) (StreamReader, error)
-}
-
-// StreamReader 流式消息读取器接口
-type StreamReader interface {
-	// Recv 逐步读取增量消息片段，当流结束时返回 io.EOF。
-	// 为了使流式增量更容易流转，返回的 Message 会包含增量的 Content 和 ReasoningContent。
-	Recv() (*message.Message, error)
-	// Close 关闭连接，释放网络及 IO 资源
-	Close() error
+	Stream(ctx context.Context, messages []message.Message, opts ...OptionFunc) (message.StreamMessageReader, error)
 }
 
 // Option 通用调用参数

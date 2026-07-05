@@ -66,7 +66,7 @@ func (a *deepSeekAdapter) Generate(ctx context.Context, messages []message.Messa
 }
 
 // Stream 接口实现
-func (a *deepSeekAdapter) Stream(ctx context.Context, messages []message.Message, opts ...chat.OptionFunc) (chat.StreamReader, error) {
+func (a *deepSeekAdapter) Stream(ctx context.Context, messages []message.Message, opts ...chat.OptionFunc) (message.StreamMessageReader, error) {
 	req := buildRequest(messages, opts...)
 	stream, err := a.client.CreateChatCompletionStream(ctx, req)
 	if err != nil {
@@ -78,43 +78,64 @@ func (a *deepSeekAdapter) Stream(ctx context.Context, messages []message.Message
 	}, nil
 }
 
-// deepseekStreamReaderAdapter 流式桥接适配器
+// deepseekStreamReaderAdapter 流式桥接适配器，实现 message.StreamMessageReader 接口
 type deepseekStreamReaderAdapter struct {
 	stream *deepseek.ChatCompletionStream
+	queue  []*message.StreamMessage
 }
 
-func (r *deepseekStreamReaderAdapter) Recv() (*message.Message, error) {
-	chunk, err := r.stream.Recv()
-	if err != nil {
-		return nil, err
+func (r *deepseekStreamReaderAdapter) Recv() (*message.StreamMessage, error) {
+	if len(r.queue) > 0 {
+		msg := r.queue[0]
+		r.queue = r.queue[1:]
+		return msg, nil
 	}
-	if len(chunk.Choices) == 0 {
-		return &message.Message{}, nil
-	}
-	delta := chunk.Choices[0].Delta
 
-	var toolCalls []message.ToolCall
-	if len(delta.ToolCalls) > 0 {
-		toolCalls = make([]message.ToolCall, len(delta.ToolCalls))
-		for i, tc := range delta.ToolCalls {
-			toolCalls[i] = message.ToolCall{
-				Index: tc.Index,
-				ID:    tc.ID,
-				Type:  tc.Type,
-				Function: message.FunctionCall{
-					Name:      tc.Function.Name,
-					Arguments: tc.Function.Arguments,
-				},
+	for {
+		chunk, err := r.stream.Recv()
+		if err != nil {
+			return nil, err
+		}
+		if len(chunk.Choices) == 0 {
+			continue
+		}
+		delta := chunk.Choices[0].Delta
+
+		if delta.ReasoningContent != "" {
+			r.queue = append(r.queue, &message.StreamMessage{
+				Type:    message.StreamMessageReasoningDelta,
+				Content: delta.ReasoningContent,
+			})
+		}
+		if delta.Content != "" {
+			r.queue = append(r.queue, &message.StreamMessage{
+				Type:    message.StreamMessageTextDelta,
+				Content: delta.Content,
+			})
+		}
+		if len(delta.ToolCalls) > 0 {
+			for _, tc := range delta.ToolCalls {
+				r.queue = append(r.queue, &message.StreamMessage{
+					Type: message.StreamMessageToolCall,
+					ToolCall: &message.ToolCall{
+						Index: tc.Index,
+						ID:    tc.ID,
+						Type:  tc.Type,
+						Function: message.FunctionCall{
+							Name:      tc.Function.Name,
+							Arguments: tc.Function.Arguments,
+						},
+					},
+				})
 			}
 		}
-	}
 
-	return &message.Message{
-		Role:             message.Role(delta.Role),
-		Content:          delta.Content,
-		ReasoningContent: delta.ReasoningContent,
-		ToolCalls:        toolCalls,
-	}, nil
+		if len(r.queue) > 0 {
+			msg := r.queue[0]
+			r.queue = r.queue[1:]
+			return msg, nil
+		}
+	}
 }
 
 func (r *deepseekStreamReaderAdapter) Close() error {
