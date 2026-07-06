@@ -297,8 +297,8 @@ func TestAgentAppService_PendingConfirmation(t *testing.T) {
 	assert.Equal(t, "call_sensitive_3", interruptErr.ToolCalls[0].ID)
 	assert.Equal(t, "sensitive_tool", interruptErr.ToolCalls[0].Function.Name)
 
-	assert.Equal(t, "call_sensitive_3", sess.Metadata["pending_confirm_tool_call_ids"])
-	assert.Equal(t, "sensitive_tool", sess.Metadata["pending_confirm_tool_names"])
+	assert.Equal(t, "call_sensitive_3", sess.Metadata[session.MetadataPendingConfirmToolCallIDs])
+	assert.Equal(t, "sensitive_tool", sess.Metadata[session.MetadataPendingConfirmToolNames])
 }
 
 func TestAgentAppService_MultiplePendingConfirmations(t *testing.T) {
@@ -411,8 +411,8 @@ func TestAgentAppService_MultiplePendingConfirmations(t *testing.T) {
 	assert.Equal(t, "call_sensitive_a", interruptErr.ToolCalls[0].ID)
 	assert.Equal(t, "call_sensitive_b", interruptErr.ToolCalls[1].ID)
 
-	assert.Equal(t, "call_sensitive_a,call_sensitive_b", sess.Metadata["pending_confirm_tool_call_ids"])
-	assert.Equal(t, "sensitive_tool_a,sensitive_tool_b", sess.Metadata["pending_confirm_tool_names"])
+	assert.Equal(t, "call_sensitive_a,call_sensitive_b", sess.Metadata[session.MetadataPendingConfirmToolCallIDs])
+	assert.Equal(t, "sensitive_tool_a,sensitive_tool_b", sess.Metadata[session.MetadataPendingConfirmToolNames])
 }
 
 func TestAgentAppService_PartialSuccessPersistenceOnConfirmation(t *testing.T) {
@@ -527,4 +527,90 @@ func TestAgentAppService_PartialSuccessPersistenceOnConfirmation(t *testing.T) {
 	assert.Equal(t, "call_normal_1", sess.Messages[2].ToolCallID)
 	assert.Equal(t, "normal_success_content", sess.Messages[2].Content)
 }
+
+func TestAgentAppService_Stream_AutoCancelPendingConfirmation(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockChatModel := chatmock.NewMockChatModel(ctrl)
+	mockSessionSvc := sessionmock.NewMockSessionService(ctrl)
+
+	eventBus := infraevent.NewInMemoryEventBus(10, 1, nil)
+	defer eventBus.Shutdown(context.Background())
+
+	svc := appagent.NewService(mockChatModel, mockSessionSvc, eventBus, eventBus)
+
+	ctx := context.Background()
+	sessionID := "test-session-auto-cancel"
+	userID := "user-123"
+
+	ctx = appagent.WithSessionID(ctx, sessionID)
+	ctx = appagent.WithUserID(ctx, userID)
+
+	// 1. 初始化一个处于 pending_confirmation 状态的 Session
+	sess := session.NewSession(sessionID, userID, nil)
+	sess.MarkPendingConfirmation()
+	sess.Metadata[session.MetadataPendingConfirmToolCallIDs] = "call_1,call_2"
+	sess.Metadata[session.MetadataPendingConfirmToolNames] = "sensitive_tool_1,sensitive_tool_2"
+
+	// 2. 模拟 Session 的读取与保存行为
+	mockSessionSvc.EXPECT().Get(gomock.Any(), sessionID).Return(sess, nil).Times(1)
+	mockSessionSvc.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+	// 3. 模拟 ChatModel 的 Stream 方法被调用
+	streamMsgs := []*message.StreamMessage{
+		{Type: message.StreamMessageTextDelta, Content: "Continuing conversation..."},
+	}
+	mockReader := &testStreamReader{msgs: streamMsgs}
+	mockChatModel.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockReader, nil).Times(1)
+
+	// 4. 发送新消息
+	userMsgs := []message.Message{
+		{Role: message.RoleUser, Content: "Never mind, do something else"},
+	}
+
+	opts := []chat.OptionFunc{
+		chat.WithMaxIterations(1),
+	}
+
+	reader, err := svc.Stream(ctx, userMsgs, opts...)
+	require.NoError(t, err)
+	defer reader.Close()
+
+	// 消费 stream 以让循环走完并更新/保存 Session
+	for {
+		_, err := reader.Recv()
+		if err != nil {
+			break
+		}
+	}
+
+	// 5. 校验自动取消的行为
+	// 期望追加了两条取消的 Tool 消息以及用户的新消息
+	// 顺序应该是：
+	// - ToolMessage(call_1, cancelled)
+	// - ToolMessage(call_2, cancelled)
+	// - UserMessage("Never mind, do something else")
+	// - AssistantMessage("Continuing conversation...")
+	require.Len(t, sess.Messages, 4)
+
+	assert.Equal(t, message.RoleTool, sess.Messages[0].Role)
+	assert.Equal(t, "call_1", sess.Messages[0].ToolCallID)
+	assert.Contains(t, sess.Messages[0].Content, "cancelled")
+
+	assert.Equal(t, message.RoleTool, sess.Messages[1].Role)
+	assert.Equal(t, "call_2", sess.Messages[1].ToolCallID)
+	assert.Contains(t, sess.Messages[1].Content, "cancelled")
+
+	assert.Equal(t, message.RoleUser, sess.Messages[2].Role)
+	assert.Equal(t, "Never mind, do something else", sess.Messages[2].Content)
+
+	assert.Equal(t, message.RoleAssistant, sess.Messages[3].Role)
+
+	// 状态和元数据应该被清空
+	assert.Empty(t, sess.GetStatus())
+	assert.NotContains(t, sess.Metadata, session.MetadataPendingConfirmToolCallIDs)
+	assert.NotContains(t, sess.Metadata, session.MetadataPendingConfirmToolNames)
+}
+
 

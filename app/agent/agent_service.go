@@ -58,15 +58,8 @@ func (s *agentService) Generate(ctx context.Context, messages []message.Message,
 		return resp, err
 	}
 
-	sessionID, _ := GetSessionID(ctx)
-	sess, err := s.sessionSvc.Get(ctx, sessionID)
+	sess, err := s.acceptUserMessages(ctx, messages)
 	if err != nil {
-		sess = session.NewSession(sessionID, GetUserID(ctx), nil)
-	}
-
-	// 新传入的 messages 添加到 session 中
-	sess.Messages = append(sess.Messages, messages...)
-	if err := s.sessionSvc.Save(ctx, sess); err != nil {
 		return nil, err
 	}
 
@@ -90,14 +83,8 @@ func (s *agentService) Stream(ctx context.Context, messages []message.Message, o
 		return reader, err
 	}
 
-	sessionID, _ := GetSessionID(ctx)
-	// 新传入的 messages 添加到 session 中，如果没有 session 则初始化
-	sess, err := s.sessionSvc.Get(ctx, sessionID)
+	sess, err := s.acceptUserMessages(ctx, messages)
 	if err != nil {
-		sess = session.NewSession(sessionID, GetUserID(ctx), nil)
-	}
-	sess.Messages = append(sess.Messages, messages...)
-	if err := s.sessionSvc.Save(ctx, sess); err != nil {
 		return nil, err
 	}
 
@@ -111,7 +98,7 @@ func (s *agentService) Stream(ctx context.Context, messages []message.Message, o
 
 	// 注册当前 Session 的活跃通道读取器
 	s.mu.Lock()
-	s.readers[sessionID] = reader
+	s.readers[sess.ID] = reader
 	s.mu.Unlock()
 
 	go func() {
@@ -121,6 +108,25 @@ func (s *agentService) Stream(ctx context.Context, messages []message.Message, o
 	}()
 
 	return reader, nil
+}
+
+func (s *agentService) acceptUserMessages(ctx context.Context, messages []message.Message) (*session.Session, error) {
+	sessionID, _ := GetSessionID(ctx)
+	sess, err := s.sessionSvc.Get(ctx, sessionID)
+	if err != nil {
+		sess = session.NewSession(sessionID, GetUserID(ctx), nil)
+	}
+
+	// 如果处于挂起确认状态，则执行自动取消逻辑
+	if sess.IsPendingConfirmation() {
+		sess.CancelPendingConfirmations()
+	}
+
+	sess.Messages = append(sess.Messages, messages...)
+	if err := s.sessionSvc.Save(ctx, sess); err != nil {
+		return nil, err
+	}
+	return sess, nil
 }
 
 func (s *agentService) runStreamLoop(ctx context.Context, sess *session.Session, opts []chat.OptionFunc) error {

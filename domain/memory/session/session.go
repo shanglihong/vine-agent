@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"vine-agent/domain/message"
@@ -12,6 +13,10 @@ import (
 const (
 	SessionStatusKey                 = "status"
 	SessionStatusPendingConfirmation = "pending_confirmation"
+
+	LastEvolvedMsgCountKey            = "last_evolved_msg_count"
+	MetadataPendingConfirmToolCallIDs = "pending_confirm_tool_call_ids"
+	MetadataPendingConfirmToolNames   = "pending_confirm_tool_names"
 )
 
 // Session 代表一个 AI 对话会话领域对象（聚合根，作为短期记忆）
@@ -59,6 +64,11 @@ func (s *Session) MarkPendingConfirmation() {
 	s.Metadata[SessionStatusKey] = SessionStatusPendingConfirmation
 }
 
+// IsPendingConfirmation 检查会话当前是否处于等待工具执行确认的状态
+func (s *Session) IsPendingConfirmation() bool {
+	return s.GetStatus() == SessionStatusPendingConfirmation
+}
+
 // ClearStatus 清除会话的状态
 func (s *Session) ClearStatus() {
 	if s.Metadata != nil {
@@ -84,26 +94,13 @@ func (s *Session) ApplyInterrupt(err error) bool {
 				ids = append(ids, tc.ID)
 				names = append(names, tc.Function.Name)
 			}
-			s.Metadata["pending_confirm_tool_call_ids"] = joinStrings(ids, ",")
-			s.Metadata["pending_confirm_tool_names"] = joinStrings(names, ",")
+			s.Metadata[MetadataPendingConfirmToolCallIDs] = joinStrings(ids, ",")
+			s.Metadata[MetadataPendingConfirmToolNames] = joinStrings(names, ",")
 		}
 		return true
 	}
 	return false
 }
-
-func joinStrings(elems []string, sep string) string {
-	if len(elems) == 0 {
-		return ""
-	}
-	res := elems[0]
-	for _, val := range elems[1:] {
-		res += sep + val
-	}
-	return res
-}
-
-const LastEvolvedMsgCountKey = "last_evolved_msg_count"
 
 // GetLastEvolvedMsgCount 获取上次完成偏好演进的消息总数。如果未记录或解析失败，则返回 0
 func (s *Session) GetLastEvolvedMsgCount() int {
@@ -127,4 +124,63 @@ func (s *Session) UpdateLastEvolvedMsgCount() {
 		s.Metadata = make(map[string]string)
 	}
 	s.Metadata[LastEvolvedMsgCountKey] = fmt.Sprintf("%d", len(s.Messages))
+}
+
+// GetPendingConfirmToolCallIDs 获取当前挂起等待确认的工具调用 ID 列表。
+func (s *Session) GetPendingConfirmToolCallIDs() []string {
+	if s.Metadata == nil {
+		return nil
+	}
+	pendingIDsStr := s.Metadata[MetadataPendingConfirmToolCallIDs]
+	if pendingIDsStr == "" {
+		return nil
+	}
+	parts := strings.Split(pendingIDsStr, ",")
+	var ids []string
+	for _, id := range parts {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+// ClearPendingConfirmations 清除会话中所有与挂起工具调用相关的元数据和状态。
+func (s *Session) ClearPendingConfirmations() {
+	s.ClearStatus()
+	if s.Metadata != nil {
+		delete(s.Metadata, MetadataPendingConfirmToolCallIDs)
+		delete(s.Metadata, MetadataPendingConfirmToolNames)
+	}
+}
+
+// CancelPendingConfirmations 检查会话状态是否为 pending_confirmation。
+// 如果是，说明存在挂起的工具调用审批，而用户此时直接输入了新消息。
+// 我们自动将挂起的工具调用标记为“已被取消”状态以维持消息流时序合规与状态一致性。
+func (s *Session) CancelPendingConfirmations() {
+	if !s.IsPendingConfirmation() {
+		return
+	}
+
+	pendingIDs := s.GetPendingConfirmToolCallIDs()
+	for _, id := range pendingIDs {
+		// 自动追加一个 Tool 消息，表示调用被用户取消了
+		cancelMsg := message.NewToolMessage(id, "Tool execution cancelled because user sent a new message instead of approving.")
+		s.Messages = append(s.Messages, cancelMsg)
+	}
+
+	// 清理会话挂起状态
+	s.ClearPendingConfirmations()
+}
+
+func joinStrings(elems []string, sep string) string {
+	if len(elems) == 0 {
+		return ""
+	}
+	res := elems[0]
+	for _, val := range elems[1:] {
+		res += sep + val
+	}
+	return res
 }
