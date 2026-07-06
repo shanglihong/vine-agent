@@ -10,6 +10,6 @@ server:
 # 长期记忆与数据库存储配置
 storage:
   # 长期记忆画像（偏好与事实）存放的物理文件路径
-  profile_dir: "data/profile"
+  profile_dir: "~/.vine-agent/data/profile"
   # SQLite 数据库物理文件路径
-  sqlite_db_path: "data/db/memory.db"
+  sqlite_db_path: "~/.vine-agent/data/db/memory.db"

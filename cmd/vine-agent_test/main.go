@@ -24,15 +24,7 @@ func main() {
 	ctx := context.Background()
 
 	// 1. 加载配置
-	cfg := config.DefaultConfig()
-	if _, err := os.Stat("config.yaml"); err == nil {
-		if fileCfg, err := config.LoadConfigFromFile("config.yaml"); err == nil {
-			cfg = fileCfg
-			logger.Println("成功加载本地 config.yaml 配置")
-		} else {
-			logger.Printf("加载 config.yaml 失败，使用默认配置: %v\n", err)
-		}
-	}
+	cfg := config.LoadConfig()
 
 	// 2. 初始化持久化层仓储
 	sessionStore, err := sqlite.NewSessionStore(cfg.Storage.SQLiteDBPath)

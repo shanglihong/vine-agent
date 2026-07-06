@@ -31,16 +31,7 @@ func main() {
 	logger := log.New(os.Stdout, "[vine-server] ", log.LstdFlags)
 	logger.Println("开始初始化 Vine-Agent 接口服务...")
 
-	cfg := config.DefaultConfig()
-	if _, err := os.Stat("config.yaml"); err == nil {
-		if fileCfg, err := config.LoadConfigFromFile("config.yaml"); err == nil {
-			cfg = fileCfg
-			logger.Println("成功加载本地 config.yaml 配置")
-		} else {
-			logger.Printf("加载 config.yaml 失败，使用默认配置: %v\n", err)
-		}
-	}
-
+	cfg := config.LoadConfig()
 	// 1. 初始化持久化层
 	sessionStore, err := sqlite.NewSessionStore(cfg.Storage.SQLiteDBPath)
 	if err != nil {

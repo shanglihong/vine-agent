@@ -30,29 +30,10 @@ type Config struct {
 // 如果环境变量 APP_ENV 为 "dev"/"development" 或 VINE_DEBUG 为 "true"，将数据保存在项目根目录下的 data/ 目录；
 // 否则为默认生产部署环境，将数据保存在用户主目录下的隐藏文件夹 ~/.vine-agent/ 中。
 func DefaultConfig() *Config {
-	env := strings.ToLower(os.Getenv("APP_ENV"))
-	isDebug := os.Getenv("VINE_DEBUG") == "true" || env == "dev" || env == "development"
-
-	var baseDir string
-	if isDebug {
-		root := utils.FindProjectRoot()
-		if root != "" {
-			baseDir = filepath.Join(root, "data")
-		}
-	}
-
-	if baseDir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			home = "." // 无法获取主目录时，降级退化到当前工作目录
-		}
-		baseDir = filepath.Join(home, ".vine-agent")
-	}
-
 	var cfg Config
 	cfg.Server.Port = ":8080"
-	cfg.Storage.ProfileDir = filepath.Join(baseDir, "profile")
-	cfg.Storage.SQLiteDBPath = filepath.Join(baseDir, "db", "memory.db")
+	cfg.Storage.ProfileDir = filepath.Join(utils.FindProjectRoot(), "data", "profile")
+	cfg.Storage.SQLiteDBPath = filepath.Join(utils.FindProjectRoot(), "data", "db", "memory.db")
 	return &cfg
 }
 
@@ -70,5 +51,35 @@ func LoadConfigFromFile(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal yaml config: %w", err)
 	}
 
+	// 统一展开波浪号 ~ 为用户主目录绝对路径
+	cfg.Storage.ProfileDir = expandPath(cfg.Storage.ProfileDir)
+	cfg.Storage.SQLiteDBPath = expandPath(cfg.Storage.SQLiteDBPath)
+
 	return cfg, nil
+}
+
+// expandPath 将路径中开头的波浪号 ~ 展开为实际的用户主目录绝对路径
+func expandPath(path string) string {
+	if strings.HasPrefix(path, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return path
+		}
+		if path == "~" {
+			return home
+		}
+		if strings.HasPrefix(path, "~/") {
+			return filepath.Join(home, path[2:])
+		}
+	}
+	return path
+}
+
+func LoadConfig() *Config {
+	cfg, _ := LoadConfigFromFile("config.yaml")
+	env := strings.ToLower(os.Getenv("APP_ENV"))
+	if env == "dev" {
+		return DefaultConfig()
+	}
+	return cfg
 }
