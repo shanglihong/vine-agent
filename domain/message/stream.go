@@ -18,9 +18,9 @@ const (
 // StreamMessage 代表流式输出的统一消息结构
 type StreamMessage struct {
 	Type       StreamMessageType `json:"type"`
-	Content    string            `json:"content,omitempty"`      // 文本 delta（text_delta 或 reasoning_delta）
-	ToolCall   *ToolCall         `json:"tool_call,omitempty"`    // 工具调用详情（tool_call）
-	ToolResult *StreamToolResult `json:"tool_result,omitempty"`  // 工具执行结果（tool_result）
+	Content    string            `json:"content,omitempty"`     // 文本 delta（text_delta 或 reasoning_delta）
+	ToolCall   *ToolCall         `json:"tool_call,omitempty"`   // 工具调用详情（tool_call）
+	ToolResult *StreamToolResult `json:"tool_result,omitempty"` // 工具执行结果（tool_result）
 }
 
 // StreamToolResult 携带工具执行完毕的数据
@@ -54,8 +54,8 @@ func (s *StreamMessage) IsDelta() bool {
 }
 
 // ReadAndAssembleMessage 从 StreamMessageReader 中读取所有的流片段，累积拼接成一个完整的 Message 实体。
-// 在读取过程中，如果传入了 onDelta 回调，会将每个文本或推理的 delta 实时反馈。
-func ReadAndAssembleMessage(stream StreamMessageReader, onDelta func(*StreamMessage)) (*Message, error) {
+// 在读取过程中，如果传入了 callback 回调，会将每个流片段实时反馈。
+func ReadAndAssembleMessage(stream StreamMessageReader, callback func(*StreamMessage)) (*Message, error) {
 	var fullContent string
 	var fullReasoning string
 	var tempToolCalls []ToolCall
@@ -69,9 +69,8 @@ func ReadAndAssembleMessage(stream StreamMessageReader, onDelta func(*StreamMess
 			return nil, err
 		}
 
-		if msg.IsDelta() && onDelta != nil {
-			onDelta(msg)
-		}
+		// 单个消息的回调（由外部决定如何处理，例如推送到事件总线）
+		callback(msg)
 
 		switch msg.Type {
 		case StreamMessageTextDelta:
@@ -106,4 +105,20 @@ func NewStreamToolResult(toolCallID string, output string, err error) *StreamToo
 		res.Output = output
 	}
 	return res
+}
+
+// NewStreamMessageToolCall 快捷构造一个工具调用类型的流消息
+func NewStreamMessageToolCall(tc *ToolCall) *StreamMessage {
+	return &StreamMessage{
+		Type:     StreamMessageToolCall,
+		ToolCall: tc,
+	}
+}
+
+// NewStreamMessageToolResult 快捷构造一个工具执行结果类型的流消息
+func NewStreamMessageToolResult(toolCallID string, output string, err error) *StreamMessage {
+	return &StreamMessage{
+		Type:       StreamMessageToolResult,
+		ToolResult: NewStreamToolResult(toolCallID, output, err),
+	}
 }

@@ -22,7 +22,7 @@ type Session struct {
 	CreatedAt time.Time         `json:"created_at"`
 	UpdatedAt time.Time         `json:"updated_at"`
 	Metadata  map[string]string `json:"metadata"`
-	Messages  []message.Message    `json:"messages"`
+	Messages  []message.Message `json:"messages"`
 }
 
 // NewSession 创建一个新的会话实例。如果传入的 id 为空，会内置自动生成一个基于时间戳的唯一会话 ID
