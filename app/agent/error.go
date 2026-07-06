@@ -53,3 +53,13 @@ func (e *ToolInvalidArgumentError) Error() string {
 func (e *ToolInvalidArgumentError) Unwrap() error {
 	return e.Err
 }
+
+// ToolConfirmationRequiredError 表示工具需要人工确认但尚未确认的异常
+type ToolConfirmationRequiredError struct {
+	ToolName   string
+	ToolCallID string
+}
+
+func (e *ToolConfirmationRequiredError) Error() string {
+	return fmt.Sprintf("tool %q (call_id: %s) requires confirmation", e.ToolName, e.ToolCallID)
+}

@@ -16,8 +16,19 @@ type InterruptError struct {
 	SessionID string
 	Status    string
 	Message   *message.Message
+	ToolCalls []message.ToolCall
 }
 
 func (e *InterruptError) Error() string {
 	return fmt.Sprintf("chat interrupted for session %s, status: %s", e.SessionID, e.Status)
+}
+
+// NewPendingConfirmationError 创建一个新的 InterruptError 实例
+func NewPendingConfirmationError(sessionID string, msg *message.Message, toolCalls []message.ToolCall) *InterruptError {
+	return &InterruptError{
+		SessionID: sessionID,
+		Status:    SessionStatusPendingConfirmation,
+		Message:   msg,
+		ToolCalls: toolCalls,
+	}
 }

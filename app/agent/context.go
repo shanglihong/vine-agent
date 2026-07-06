@@ -7,9 +7,28 @@ import (
 type contextKey string
 
 const (
-	sessionIDKey contextKey = "session_id"
-	userIDKey    contextKey = "user_id"
+	sessionIDKey            contextKey = "session_id"
+	userIDKey               contextKey = "user_id"
+	confirmedToolCallIDsKey contextKey = "confirmed_tool_call_ids"
 )
+
+// WithConfirmedToolCallIDs 将已确认的 ToolCall ID 列表注入 context
+func WithConfirmedToolCallIDs(ctx context.Context, ids []string) context.Context {
+	m := make(map[string]bool)
+	for _, id := range ids {
+		m[id] = true
+	}
+	return context.WithValue(ctx, confirmedToolCallIDsKey, m)
+}
+
+// IsToolCallConfirmed 检查特定 ToolCall ID 是否已被确认
+func IsToolCallConfirmed(ctx context.Context, id string) bool {
+	val, ok := ctx.Value(confirmedToolCallIDsKey).(map[string]bool)
+	if !ok {
+		return false
+	}
+	return val[id]
+}
 
 // WithSessionID 将 SessionID 注入 context
 func WithSessionID(ctx context.Context, id string) context.Context {

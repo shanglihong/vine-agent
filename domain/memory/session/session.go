@@ -12,7 +12,6 @@ import (
 const (
 	SessionStatusKey                 = "status"
 	SessionStatusPendingConfirmation = "pending_confirmation"
-	SessionStatusInterruptedText     = "interrupted_text"
 )
 
 // Session 代表一个 AI 对话会话领域对象（聚合根，作为短期记忆）
@@ -60,14 +59,6 @@ func (s *Session) MarkPendingConfirmation() {
 	s.Metadata[SessionStatusKey] = SessionStatusPendingConfirmation
 }
 
-// MarkInterruptedText 将会话标记为流式文本生成被中断状态
-func (s *Session) MarkInterruptedText() {
-	if s.Metadata == nil {
-		s.Metadata = make(map[string]string)
-	}
-	s.Metadata[SessionStatusKey] = SessionStatusInterruptedText
-}
-
 // ClearStatus 清除会话的状态
 func (s *Session) ClearStatus() {
 	if s.Metadata != nil {
@@ -86,9 +77,30 @@ func (s *Session) ApplyInterrupt(err error) bool {
 			s.Metadata = make(map[string]string)
 		}
 		s.Metadata[SessionStatusKey] = interruptErr.Status
+		if len(interruptErr.ToolCalls) > 0 {
+			var ids []string
+			var names []string
+			for _, tc := range interruptErr.ToolCalls {
+				ids = append(ids, tc.ID)
+				names = append(names, tc.Function.Name)
+			}
+			s.Metadata["pending_confirm_tool_call_ids"] = joinStrings(ids, ",")
+			s.Metadata["pending_confirm_tool_names"] = joinStrings(names, ",")
+		}
 		return true
 	}
 	return false
+}
+
+func joinStrings(elems []string, sep string) string {
+	if len(elems) == 0 {
+		return ""
+	}
+	res := elems[0]
+	for _, val := range elems[1:] {
+		res += sep + val
+	}
+	return res
 }
 
 const LastEvolvedMsgCountKey = "last_evolved_msg_count"

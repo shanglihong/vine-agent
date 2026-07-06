@@ -33,7 +33,6 @@ Memory 模块是系统的记忆管理中心，负责管理 AI 对话会话（Ses
 ##### 内聚行为与状态管理
 - **状态流转**：通过在 `Metadata` 中设置 `status` 键实现会话的状态流转：
   - `MarkPendingConfirmation()`: 将状态置为 `pending_confirmation`（等待敏感工具执行确认）。
-  - `MarkInterruptedText()`: 将状态置为 `interrupted_text`（流式文本生成被中断）。
   - `ClearStatus()`: 清除状态。
   - `ApplyInterrupt(err)`: 解析领域异常 `InterruptError`，并根据其中的状态信息自动更新会话状态。
 - **演进进度记录**：

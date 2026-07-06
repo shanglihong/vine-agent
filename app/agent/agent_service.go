@@ -160,19 +160,33 @@ func (s *agentService) runStreamLoop(ctx context.Context, sess *session.Session,
 			return err
 		}
 
-		// 并发执行工具调用
-		toolMsgs, err := utils.ParallelMap(ctx, assistantMsg.ToolCalls, func(taskCtx context.Context, tc message.ToolCall) (message.Message, error) {
+		toolResults := utils.ParallelMap(ctx, assistantMsg.ToolCalls, func(taskCtx context.Context, tc message.ToolCall) (message.Message, error) {
 			_ = s.publishStreamMessage(taskCtx, sess, message.NewStreamMessageToolCall(&tc))
-			toolMsg, execErr := ExecuteToolCall(taskCtx, tc, chatOpt.Tools[tc.Function.Name])
-			_ = s.publishStreamMessage(taskCtx, sess, message.NewStreamMessageToolResult(tc.ID, toolMsg.Content, execErr))
-			return toolMsg, execErr
-		})
-		if err != nil {
-			return err
+			toolMsg, toolErr := ExecuteToolCall(taskCtx, tc, chatOpt.Tools[tc.Function.Name])
+			_ = s.publishStreamMessage(taskCtx, sess, message.NewStreamMessageToolResult(tc.ID, toolMsg.Content, toolErr))
+			return toolMsg, toolErr
+		}, utils.WithFailFast(false))
+
+		// 遍历工具执行结果，分三类处理：成功追加消息、待确认收集、其他失败追加错误消息
+		var pendingConfirms []message.ToolCall
+		for _, res := range toolResults {
+			if res.Error == nil {
+				sess.Messages = append(sess.Messages, res.O)
+			} else if _, ok := res.Error.(*ToolConfirmationRequiredError); ok {
+				pendingConfirms = append(pendingConfirms, res.I)
+			} else {
+				sess.Messages = append(sess.Messages, message.NewToolMessage(res.I.ID, res.Error.Error()))
+			}
 		}
 
-		// 一次性追加并保存 Session 状态
-		sess.Messages = append(sess.Messages, toolMsgs...)
+		// 有待确认项：应用中断状态后提前返回（save best-effort）
+		if len(pendingConfirms) > 0 {
+			interruptErr := session.NewPendingConfirmationError(sess.ID, assistantMsg, pendingConfirms)
+			sess.ApplyInterrupt(interruptErr)
+			_ = s.sessionSvc.Save(ctx, sess)
+			return interruptErr
+		}
+
 		if err := s.sessionSvc.Save(ctx, sess); err != nil {
 			return err
 		}
