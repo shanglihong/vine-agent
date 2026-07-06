@@ -6,31 +6,29 @@ import (
 	"fmt"
 	"vine-agent/domain/message"
 	"vine-agent/domain/tool"
-
-	"github.com/xeipuuv/gojsonschema"
 )
 
-func ExecuteToolCall(ctx context.Context, call message.ToolCall, tool tool.Tool) (message.Message, error) {
+func ExecuteToolCall(ctx context.Context, call message.ToolCall, t tool.Tool) (message.Message, error) {
 	if err := ctx.Err(); err != nil {
 		return message.Message{}, &TimeoutError{Err: err}
 	}
 
-	if tool == nil {
+	if t == nil {
 		return message.Message{}, &ToolNotFoundError{ToolName: call.Function.Name}
 	}
 
 	// 检查是否需要人工确认并且此次调用未被确认
-	if tool.Info().RequiresConfirmation && !IsToolCallConfirmed(ctx, call.ID) {
-		err := &ToolConfirmationRequiredError{ToolName: tool.Info().Name, ToolCallID: call.ID}
+	if t.Info().RequiresConfirmation && !IsToolCallConfirmed(ctx, call.ID) {
+		err := &ToolConfirmationRequiredError{ToolName: t.Info().Name, ToolCallID: call.ID}
 		return message.Message{}, err
 	}
 
 	// 验证 JSON Schema
-	if err := validateArguments(tool.Info().Parameters, call.Function.Arguments); err != nil {
-		return message.Message{}, &ToolInvalidArgumentError{ToolName: tool.Info().Name, Err: err}
+	if err := tool.ValidateArguments(t.Info().Parameters, call.Function.Arguments); err != nil {
+		return message.Message{}, &ToolInvalidArgumentError{ToolName: t.Info().Name, Err: err}
 	}
 
-	res, err := tool.Execute(ctx, call.Function.Arguments)
+	res, err := t.Execute(ctx, call.Function.Arguments)
 	if err != nil {
 		if ctx.Err() != nil {
 			return message.Message{}, &TimeoutError{Err: ctx.Err()}
@@ -38,31 +36,12 @@ func ExecuteToolCall(ctx context.Context, call message.ToolCall, tool tool.Tool)
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 			return message.Message{}, &TimeoutError{Err: err}
 		}
-		return message.Message{}, &ToolExecutionError{ToolName: tool.Info().Name, Err: err}
+		return message.Message{}, &ToolExecutionError{ToolName: t.Info().Name, Err: err}
 	}
 
 	return message.NewToolMessage(call.ID, res), nil
 }
 
-// validateArguments 校验入参是否符合 JSON Schema 规范
-func validateArguments(schema any, args string) error {
-	if schema == nil {
-		return nil
-	}
-
-	schemaLoader := gojsonschema.NewGoLoader(schema)
-	documentLoader := gojsonschema.NewStringLoader(args)
-
-	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
-	if err != nil {
-		return fmt.Errorf("validation error: %w", err)
-	}
-
-	if !result.Valid() {
-		return fmt.Errorf("validation failed: %v", result.Errors())
-	}
-	return nil
-}
 
 // ConvertToolErrorToMessage 将工具执行返回的 Go 错误分类处理。
 // 如果是需要阻断的人工确认错误，则原样返回 Go error，由外部处理控制流；
