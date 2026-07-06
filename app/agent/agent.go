@@ -1,44 +1,37 @@
 package agent
 
 import (
-	"vine-agent/domain/tool"
+	"context"
 )
 
-// Option 定义 Agent 调用的参数配置
-type Option struct {
-	MaxIterations int
-	Tools         []tool.Tool
-	Temperature   *float64
-	MaxTokens     *int
+type contextKey string
+
+const (
+	sessionIDKey contextKey = "session_id"
+	userIDKey    contextKey = "user_id"
+)
+
+// WithSessionID 将 SessionID 注入 context
+func WithSessionID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, sessionIDKey, id)
 }
 
-// OptionFunc 用于配置 Options 的函数类型
-type OptionFunc func(*Option)
-
-// WithMaxIterations 设定最大迭代次数，防死循环
-func WithMaxIterations(max int) OptionFunc {
-	return func(o *Option) {
-		o.MaxIterations = max
-	}
+// GetSessionID 从 context 提取 SessionID
+func GetSessionID(ctx context.Context) (string, bool) {
+	val, ok := ctx.Value(sessionIDKey).(string)
+	return val, ok
 }
 
-// WithTools 设定可供 Agent 调用的工具列表
-func WithTools(tools []tool.Tool) OptionFunc {
-	return func(o *Option) {
-		o.Tools = tools
-	}
+// WithUserID 将 UserID 注入 context
+func WithUserID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, userIDKey, id)
 }
 
-// WithTemperature 设定大模型的采样温度
-func WithTemperature(t float64) OptionFunc {
-	return func(o *Option) {
-		o.Temperature = &t
+// GetUserID 从 context 提取 UserID，若获取不到则默认返回 "default_user"
+func GetUserID(ctx context.Context) string {
+	val, ok := ctx.Value(userIDKey).(string)
+	if !ok || val == "" {
+		return "default_user"
 	}
-}
-
-// WithMaxTokens 设定生成最大 token 限制
-func WithMaxTokens(m int) OptionFunc {
-	return func(o *Option) {
-		o.MaxTokens = &m
-	}
+	return val
 }

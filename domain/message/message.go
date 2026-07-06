@@ -48,3 +48,44 @@ func (m *Message) IsToolCall() bool {
 func (m *Message) HasToolCalls() bool {
 	return len(m.ToolCalls) > 0
 }
+
+// Merge 将另一个 ToolCall 的增量合并到当前 ToolCall 实例中（用于流式拼接参数）
+func (tc *ToolCall) Merge(other *ToolCall) {
+	if other == nil {
+		return
+	}
+	if other.ID != "" {
+		tc.ID = other.ID
+	}
+	if other.Type != "" {
+		tc.Type = other.Type
+	}
+	if other.Function.Name != "" {
+		tc.Function.Name = other.Function.Name
+	}
+	if other.Function.Arguments != "" {
+		tc.Function.Arguments += other.Function.Arguments
+	}
+}
+
+// MergeStreamToolCall 将流式的增量 ToolCall 合并到已有的 ToolCall 切片中，并返回更新后的切片
+func MergeStreamToolCall(tcs []ToolCall, delta *ToolCall) []ToolCall {
+	if delta == nil {
+		return tcs
+	}
+	idx := delta.Index
+	for len(tcs) <= idx {
+		tcs = append(tcs, ToolCall{})
+	}
+	tcs[idx].Merge(delta)
+	return tcs
+}
+
+// NewToolMessage 创建一个工具执行结果的消息实体
+func NewToolMessage(toolCallID, content string) Message {
+	return Message{
+		Role:       RoleTool,
+		ToolCallID: toolCallID,
+		Content:    content,
+	}
+}

@@ -204,7 +204,7 @@ func fromDeepSeekToolCalls(tcs []deepseek.ToolCall) []message.ToolCall {
 	return res
 }
 
-func convertTools(tools []tool.Tool) []deepseek.Tool {
+func convertTools(tools map[string]tool.Tool) []deepseek.Tool {
 	if tools == nil {
 		return nil
 	}

@@ -1,5 +1,10 @@
 package message
 
+import (
+	"errors"
+	"io"
+)
+
 // StreamMessageType 定义流式消息类型
 type StreamMessageType string
 
@@ -31,4 +36,74 @@ type StreamMessageReader interface {
 	Recv() (*StreamMessage, error)
 	// Close 关闭消息流并释放相关资源
 	Close() error
+}
+
+// IsTextDelta 判定当前流消息是否为文本生成片段
+func (s *StreamMessage) IsTextDelta() bool {
+	return s.Type == StreamMessageTextDelta
+}
+
+// IsReasoningDelta 判定当前流消息是否为推理生成片段
+func (s *StreamMessage) IsReasoningDelta() bool {
+	return s.Type == StreamMessageReasoningDelta
+}
+
+// IsDelta 判定当前流消息是否为生成片段（文本或推理）
+func (s *StreamMessage) IsDelta() bool {
+	return s.IsTextDelta() || s.IsReasoningDelta()
+}
+
+// ReadAndAssembleMessage 从 StreamMessageReader 中读取所有的流片段，累积拼接成一个完整的 Message 实体。
+// 在读取过程中，如果传入了 onDelta 回调，会将每个文本或推理的 delta 实时反馈。
+func ReadAndAssembleMessage(stream StreamMessageReader, onDelta func(*StreamMessage)) (*Message, error) {
+	var fullContent string
+	var fullReasoning string
+	var tempToolCalls []ToolCall
+
+	for {
+		msg, err := stream.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, err
+		}
+
+		if msg.IsDelta() && onDelta != nil {
+			onDelta(msg)
+		}
+
+		switch msg.Type {
+		case StreamMessageTextDelta:
+			fullContent += msg.Content
+		case StreamMessageReasoningDelta:
+			fullReasoning += msg.Content
+		case StreamMessageToolCall:
+			tempToolCalls = MergeStreamToolCall(tempToolCalls, msg.ToolCall)
+		}
+	}
+
+	assistantMsg := Message{
+		Role:             RoleAssistant,
+		Content:          fullContent,
+		ReasoningContent: fullReasoning,
+	}
+	if len(tempToolCalls) > 0 {
+		assistantMsg.ToolCalls = tempToolCalls
+	}
+
+	return &assistantMsg, nil
+}
+
+// NewStreamToolResult 创建一个流式工具执行结果的实例指针
+func NewStreamToolResult(toolCallID string, output string, err error) *StreamToolResult {
+	res := &StreamToolResult{
+		ToolCallID: toolCallID,
+	}
+	if err != nil {
+		res.Error = err
+	} else {
+		res.Output = output
+	}
+	return res
 }

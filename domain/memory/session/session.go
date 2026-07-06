@@ -25,8 +25,11 @@ type Session struct {
 	Messages  []message.Message    `json:"messages"`
 }
 
-// NewSession 创建一个新的会话实例
+// NewSession 创建一个新的会话实例。如果传入的 id 为空，会内置自动生成一个基于时间戳的唯一会话 ID
 func NewSession(id, userID string, metadata map[string]string) *Session {
+	if id == "" {
+		id = fmt.Sprintf("sess_%d", time.Now().UnixNano())
+	}
 	if metadata == nil {
 		metadata = make(map[string]string)
 	}

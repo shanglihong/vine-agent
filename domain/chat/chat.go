@@ -20,11 +20,12 @@ type ChatModel interface {
 
 // Option 通用调用参数
 type Option struct {
-	Model       string
-	Temperature *float64
-	MaxTokens   *int
-	Tools       []tool.Tool // 工具库定义
-	ToolChoice  any         // 指定工具调用行为
+	Model         string
+	Temperature   *float64
+	MaxTokens     *int
+	Tools         map[string]tool.Tool // 工具库定义
+	ToolChoice    any         // 指定工具调用行为
+	MaxIterations *int        // 限制多轮工具调用的最大迭代次数
 }
 
 // OptionFunc 用于配置 Options 的函数类型
@@ -47,10 +48,22 @@ func WithMaxTokens(m int) OptionFunc {
 
 // WithTools 设定可用工具声明
 func WithTools(tools []tool.Tool) OptionFunc {
-	return func(o *Option) { o.Tools = tools }
+	return func(o *Option) {
+		o.Tools = make(map[string]tool.Tool)
+		for _, t := range tools {
+			if t != nil {
+				o.Tools[t.Info().Name] = t
+			}
+		}
+	}
 }
 
 // WithToolChoice 设定工具选择行为
 func WithToolChoice(toolChoice any) OptionFunc {
 	return func(o *Option) { o.ToolChoice = toolChoice }
+}
+
+// WithMaxIterations 设定工具调用最大迭代次数
+func WithMaxIterations(max int) OptionFunc {
+	return func(o *Option) { o.MaxIterations = &max }
 }

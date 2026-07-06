@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -10,16 +9,20 @@ import (
 	"vine-agent/domain/chat"
 	"vine-agent/domain/memory/session"
 	"vine-agent/domain/message"
-	"vine-agent/domain/tool"
+	"vine-agent/utils"
 )
 
-// AgentAppService 智能体应用层服务，负责编排模型生成、会话状态持久化与工具调用循环
+const defaultMaxIter int = 5
+
+var _ chat.ChatModel = (*AgentAppService)(nil)
+
+// AgentAppService 智能体应用层服务，整合了会话记忆持久化与多轮工具调用流迭代逻辑
 type AgentAppService struct {
 	chatModel  chat.ChatModel
 	sessionSvc session.SessionService
 }
 
-// NewAgentAppService 创建一个新的 AgentAppService 实例
+// NewAgentAppService 构造一个新的 AgentAppService 实例
 func NewAgentAppService(chatModel chat.ChatModel, sessionSvc session.SessionService) *AgentAppService {
 	return &AgentAppService{
 		chatModel:  chatModel,
@@ -27,233 +30,55 @@ func NewAgentAppService(chatModel chat.ChatModel, sessionSvc session.SessionServ
 	}
 }
 
-// defaultOption 构造默认的 Agent 配置选项
-func defaultOption() *Option {
-	return &Option{
-		MaxIterations: 5,
-	}
-}
-
-// Run 运行智能体（同步非流式）
-func (s *AgentAppService) Run(ctx context.Context, sessionID string, userMsg *message.Message, opts ...OptionFunc) (*message.Message, error) {
-	opt := defaultOption()
-	for _, fn := range opts {
-		fn(opt)
+// Generate 实现同步非流式模型交互（按规定只做一次生成，不调用工具，自动保存 Session 并发布事件）
+func (s *AgentAppService) Generate(ctx context.Context, messages []message.Message, opts ...chat.OptionFunc) (*message.Message, error) {
+	if s.sessionSvc == nil {
+		resp, err := s.chatModel.Generate(ctx, messages, opts...)
+		return resp, err
 	}
 
-	chatOpts := buildChatOptions(opt)
-
+	sessionID, _ := GetSessionID(ctx)
 	sess, err := s.sessionSvc.Get(ctx, sessionID)
+	if err != nil {
+		sess = session.NewSession(sessionID, GetUserID(ctx), nil)
+	}
+
+	// 新传入的 messages 添加到 session 中
+	sess.Messages = append(sess.Messages, messages...)
+	if err := s.sessionSvc.Save(ctx, sess); err != nil {
+		return nil, err
+	}
+
+	resp, err := s.chatModel.Generate(ctx, sess.Messages, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	if userMsg != nil {
-		sess.Messages = append(sess.Messages, *userMsg)
-		if err := s.sessionSvc.Save(ctx, sess); err != nil {
-			return nil, err
-		}
+	sess.Messages = append(sess.Messages, *resp)
+	if err := s.sessionSvc.Save(ctx, sess); err != nil {
+		return nil, err
 	}
 
-	// 检查会话是否由于未决的确认而处于挂起状态
-	if sess.GetStatus() == session.SessionStatusPendingConfirmation {
-		var lastAssistant *message.Message
-		for i := len(sess.Messages) - 1; i >= 0; i-- {
-			if sess.Messages[i].IsAssistant() {
-				lastAssistant = &sess.Messages[i]
-				break
-			}
-		}
-		return nil, &session.InterruptError{
-			SessionID: sess.ID,
-			Status:    session.SessionStatusPendingConfirmation,
-			Message:   lastAssistant,
-		}
-	}
-
-	for iter := 0; iter < opt.MaxIterations; iter++ {
-		assistantMsg, err := s.chatModel.Generate(ctx, sess.Messages, chatOpts...)
-		if err != nil {
-			return nil, err
-		}
-
-		sess.Messages = append(sess.Messages, *assistantMsg)
-		if err := s.sessionSvc.Save(ctx, sess); err != nil {
-			return nil, err
-		}
-
-		if !assistantMsg.HasToolCalls() {
-			return assistantMsg, nil
-		}
-
-		var hasConfirmation bool
-		for _, tc := range assistantMsg.ToolCalls {
-			var matchedTool tool.Tool
-			for _, t := range opt.Tools {
-				if t.Info().Name == tc.Function.Name {
-					matchedTool = t
-					break
-				}
-			}
-
-			if matchedTool == nil {
-				toolErr := fmt.Errorf("tool %s not found in options", tc.Function.Name)
-				toolMsg := message.Message{
-					Role:       message.RoleTool,
-					Content:    toolErr.Error(),
-					ToolCallID: tc.ID,
-				}
-				sess.Messages = append(sess.Messages, toolMsg)
-				if err := s.sessionSvc.Save(ctx, sess); err != nil {
-					return nil, err
-				}
-				continue
-			}
-
-			if matchedTool.Info().RequiresConfirmation {
-				hasConfirmation = true
-				continue
-			}
-
-			output, execErr := matchedTool.Execute(ctx, tc.Function.Arguments)
-			toolMsg := message.Message{
-				Role:       message.RoleTool,
-				ToolCallID: tc.ID,
-			}
-			if execErr != nil {
-				toolMsg.Content = fmt.Sprintf("error executing tool: %s", execErr.Error())
-			} else {
-				toolMsg.Content = output
-			}
-
-			sess.Messages = append(sess.Messages, toolMsg)
-			if err := s.sessionSvc.Save(ctx, sess); err != nil {
-				return nil, err
-			}
-		}
-
-		if hasConfirmation {
-			sess.MarkPendingConfirmation()
-			if err := s.sessionSvc.Save(ctx, sess); err != nil {
-				return nil, err
-			}
-			return nil, &session.InterruptError{
-				SessionID: sess.ID,
-				Status:    session.SessionStatusPendingConfirmation,
-				Message:   assistantMsg,
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("agent reached max iterations (%d) without resolving", opt.MaxIterations)
+	return resp, nil
 }
 
-// ConfirmTool 提交人工确认决策，并根据决策执行（或写入拒绝）对应工具，执行后更新会话状态
-func (s *AgentAppService) ConfirmTool(ctx context.Context, sessionID string, toolCallID string, approved bool, rejectReason string, opts ...OptionFunc) error {
+// Stream 实现流式多轮智能体模型交互
+func (s *AgentAppService) Stream(ctx context.Context, messages []message.Message, opts ...chat.OptionFunc) (message.StreamMessageReader, error) {
+	if s.sessionSvc == nil {
+		reader, err := s.chatModel.Stream(ctx, messages, opts...)
+		return reader, err
+	}
+
+	sessionID, _ := GetSessionID(ctx)
+	// 新传入的 messages 添加到 session 中，如果没有 session 则初始化
 	sess, err := s.sessionSvc.Get(ctx, sessionID)
 	if err != nil {
-		return err
+		sess = session.NewSession(sessionID, GetUserID(ctx), nil)
 	}
-	if sess.GetStatus() != session.SessionStatusPendingConfirmation {
-		return fmt.Errorf("session is not in pending_confirmation status: %s", sess.GetStatus())
-	}
-
-	var lastAssistantIdx = -1
-	for i := len(sess.Messages) - 1; i >= 0; i-- {
-		if sess.Messages[i].IsAssistant() {
-			lastAssistantIdx = i
-			break
-		}
-	}
-	if lastAssistantIdx == -1 {
-		return fmt.Errorf("no assistant message found in session %s", sessionID)
-	}
-
-	lastAssistant := sess.Messages[lastAssistantIdx]
-	var targetToolCall *message.ToolCall
-	for _, tc := range lastAssistant.ToolCalls {
-		if tc.ID == toolCallID {
-			targetToolCall = &tc
-			break
-		}
-	}
-	if targetToolCall == nil {
-		return fmt.Errorf("tool call id %s not found in the last assistant message", toolCallID)
-	}
-
-	opt := defaultOption()
-	for _, fn := range opts {
-		fn(opt)
-	}
-
-	var toolMsg message.Message
-	toolMsg.Role = message.RoleTool
-	toolMsg.ToolCallID = toolCallID
-
-	if approved {
-		var matchedTool tool.Tool
-		for _, t := range opt.Tools {
-			if t.Info().Name == targetToolCall.Function.Name {
-				matchedTool = t
-				break
-			}
-		}
-		if matchedTool == nil {
-			return fmt.Errorf("tool %s not configured in options", targetToolCall.Function.Name)
-		}
-
-		output, execErr := matchedTool.Execute(ctx, targetToolCall.Function.Arguments)
-		if execErr != nil {
-			toolMsg.Content = fmt.Sprintf("error executing tool: %s", execErr.Error())
-		} else {
-			toolMsg.Content = output
-		}
-	} else {
-		reason := rejectReason
-		if reason == "" {
-			reason = "rejected by user"
-		}
-		toolMsg.Content = fmt.Sprintf("rejected: %s", reason)
-	}
-
-	sess.Messages = append(sess.Messages, toolMsg)
-
-	// 检查该轮 Assistant 发起的全部工具调用是否都已被反馈
-	allConfirmed := true
-	for _, tc := range lastAssistant.ToolCalls {
-		found := false
-		for i := lastAssistantIdx + 1; i < len(sess.Messages); i++ {
-			msg := sess.Messages[i]
-			if msg.Role == message.RoleTool && msg.ToolCallID == tc.ID {
-				found = true
-				break
-			}
-		}
-		if !found {
-			allConfirmed = false
-			break
-		}
-	}
-
-	if allConfirmed {
-		sess.ClearStatus()
-	}
-
+	sess.Messages = append(sess.Messages, messages...)
 	if err := s.sessionSvc.Save(ctx, sess); err != nil {
-		return fmt.Errorf("failed to save session: %w", err)
+		return nil, err
 	}
-
-	return nil
-}
-
-// RunStream 运行智能体（流式输出）
-func (s *AgentAppService) RunStream(ctx context.Context, sessionID string, userMsg *message.Message, opts ...OptionFunc) (message.StreamMessageReader, error) {
-	opt := defaultOption()
-	for _, fn := range opts {
-		fn(opt)
-	}
-
-	chatOpts := buildChatOptions(opt)
 
 	subCtx, cancel := context.WithCancel(ctx)
 	reader := &agentEventReader{
@@ -265,7 +90,7 @@ func (s *AgentAppService) RunStream(ctx context.Context, sessionID string, userM
 
 	go func() {
 		defer close(reader.ch)
-		err := s.runStreamLoop(subCtx, sessionID, userMsg, opt, chatOpts, reader)
+		err := s.runStreamLoop(subCtx, sess, opts, reader)
 		if err != nil {
 			reader.sendErr(err)
 		}
@@ -274,211 +99,83 @@ func (s *AgentAppService) RunStream(ctx context.Context, sessionID string, userM
 	return reader, nil
 }
 
-func (s *AgentAppService) runStreamLoop(
-	ctx context.Context,
-	sessionID string,
-	userMsg *message.Message,
-	opt *Option,
-	chatOpts []chat.OptionFunc,
-	reader *agentEventReader,
-) error {
-	sess, err := s.sessionSvc.Get(ctx, sessionID)
-	if err != nil {
-		return err
+func (s *AgentAppService) runStreamLoop(ctx context.Context, sess *session.Session, opts []chat.OptionFunc, sender StreamEventSender) error {
+	chatOpt := &chat.Option{}
+	for _, fn := range opts {
+		fn(chatOpt)
+	}
+	if chatOpt.MaxIterations == nil {
+		val := defaultMaxIter
+		chatOpt.MaxIterations = &val
 	}
 
-	if userMsg != nil {
-		sess.Messages = append(sess.Messages, *userMsg)
-		if err := s.sessionSvc.Save(ctx, sess); err != nil {
-			return err
-		}
-	}
-
-	if sess.GetStatus() == session.SessionStatusPendingConfirmation {
-		var lastAssistant *message.Message
-		for i := len(sess.Messages) - 1; i >= 0; i-- {
-			if sess.Messages[i].IsAssistant() {
-				lastAssistant = &sess.Messages[i]
-				break
+	for iter := 0; iter < *chatOpt.MaxIterations; iter++ {
+		assistantMsg, err := func() (*message.Message, error) {
+			stream, err := s.chatModel.Stream(ctx, sess.Messages, opts...)
+			if err != nil {
+				return nil, err
 			}
-		}
-		return &session.InterruptError{
-			SessionID: sess.ID,
-			Status:    session.SessionStatusPendingConfirmation,
-			Message:   lastAssistant,
-		}
-	}
+			defer func() {
+				_ = stream.Close()
+			}()
 
-	for iter := 0; iter < opt.MaxIterations; iter++ {
-		stream, err := s.chatModel.Stream(ctx, sess.Messages, chatOpts...)
+			return message.ReadAndAssembleMessage(stream, func(msg *message.StreamMessage) {
+				_ = sender.Send(msg)
+			})
+		}()
+
 		if err != nil {
 			return err
 		}
 
-		var fullContent string
-		var fullReasoning string
-		var tempToolCalls []message.ToolCall
-
-		for {
-			msg, err := stream.Recv()
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			if err != nil {
-				_ = stream.Close()
-				return err
-			}
-
-			if msg.Type == message.StreamMessageTextDelta || msg.Type == message.StreamMessageReasoningDelta {
-				reader.send(msg)
-			}
-
-			switch msg.Type {
-			case message.StreamMessageTextDelta:
-				fullContent += msg.Content
-			case message.StreamMessageReasoningDelta:
-				fullReasoning += msg.Content
-			case message.StreamMessageToolCall:
-				if msg.ToolCall != nil {
-					idx := msg.ToolCall.Index
-					for len(tempToolCalls) <= idx {
-						tempToolCalls = append(tempToolCalls, message.ToolCall{})
-					}
-					if msg.ToolCall.ID != "" {
-						tempToolCalls[idx].ID = msg.ToolCall.ID
-					}
-					if msg.ToolCall.Type != "" {
-						tempToolCalls[idx].Type = msg.ToolCall.Type
-					}
-					if msg.ToolCall.Function.Name != "" {
-						tempToolCalls[idx].Function.Name = msg.ToolCall.Function.Name
-					}
-					if msg.ToolCall.Function.Arguments != "" {
-						tempToolCalls[idx].Function.Arguments += msg.ToolCall.Function.Arguments
-					}
-				}
-			}
-		}
-		_ = stream.Close()
-
-		assistantMsg := message.Message{
-			Role:             message.RoleAssistant,
-			Content:          fullContent,
-			ReasoningContent: fullReasoning,
-		}
-		if len(tempToolCalls) > 0 {
-			assistantMsg.ToolCalls = tempToolCalls
-		}
-
-		sess.Messages = append(sess.Messages, assistantMsg)
+		sess.Messages = append(sess.Messages, *assistantMsg)
 		if err := s.sessionSvc.Save(ctx, sess); err != nil {
 			return err
 		}
 
-		if !assistantMsg.HasToolCalls() {
-			return nil
-		}
-
-		var hasConfirmation bool
-		for _, tc := range assistantMsg.ToolCalls {
-			tcCopy := tc
-			reader.send(&message.StreamMessage{
-				Type:     message.StreamMessageToolCall,
-				ToolCall: &tcCopy,
-			})
-
-			var matchedTool tool.Tool
-			for _, t := range opt.Tools {
-				if t.Info().Name == tc.Function.Name {
-					matchedTool = t
-					break
-				}
+		// 并发执行所有工具调用并收集返回的 message
+		toolMsgs, err := utils.ParallelMap(ctx, assistantMsg.ToolCalls, func(taskCtx context.Context, tc message.ToolCall) (message.Message, error) {
+			if !sender.Send(&message.StreamMessage{Type: message.StreamMessageToolCall, ToolCall: &tc}) {
+				return message.Message{}, taskCtx.Err()
 			}
 
-			if matchedTool == nil {
-				toolErr := fmt.Errorf("tool %s not found in options", tc.Function.Name)
-				toolMsg := message.Message{
-					Role:       message.RoleTool,
-					Content:    toolErr.Error(),
-					ToolCallID: tc.ID,
-				}
-				sess.Messages = append(sess.Messages, toolMsg)
-				if err := s.sessionSvc.Save(ctx, sess); err != nil {
-					return err
-				}
-				reader.send(&message.StreamMessage{
-					Type: message.StreamMessageToolResult,
-					ToolResult: &message.StreamToolResult{
-						ToolCallID: tc.ID,
-						Error:      toolErr,
-					},
-				})
-				continue
-			}
-
-			if matchedTool.Info().RequiresConfirmation {
-				hasConfirmation = true
-				continue
-			}
-
-			output, execErr := matchedTool.Execute(ctx, tc.Function.Arguments)
-			toolMsg := message.Message{
-				Role:       message.RoleTool,
-				ToolCallID: tc.ID,
-			}
-			var evResult message.StreamToolResult
-			evResult.ToolCallID = tc.ID
-
+			toolMsg, execErr := ExecuteToolCall(taskCtx, tc, chatOpt.Tools[tc.Function.Name])
 			if execErr != nil {
-				toolMsg.Content = fmt.Sprintf("error executing tool: %s", execErr.Error())
-				evResult.Error = execErr
-			} else {
-				toolMsg.Content = output
-				evResult.Output = output
+				return message.Message{}, execErr
 			}
 
-			sess.Messages = append(sess.Messages, toolMsg)
-			if err := s.sessionSvc.Save(ctx, sess); err != nil {
-				return err
-			}
-
-			reader.send(&message.StreamMessage{
+			if !sender.Send(&message.StreamMessage{
 				Type:       message.StreamMessageToolResult,
-				ToolResult: &evResult,
-			})
+				ToolResult: message.NewStreamToolResult(tc.ID, toolMsg.Content, execErr),
+			}) {
+				return message.Message{}, taskCtx.Err()
+			}
+
+			return toolMsg, nil
+		})
+		if err != nil {
+			return err
 		}
 
-		if hasConfirmation {
-			sess.MarkPendingConfirmation()
-			if err := s.sessionSvc.Save(ctx, sess); err != nil {
-				return err
-			}
-			return &session.InterruptError{
-				SessionID: sess.ID,
-				Status:    session.SessionStatusPendingConfirmation,
-				Message:   &assistantMsg,
-			}
+		// 一次性追加并保存 Session 状态
+		sess.Messages = append(sess.Messages, toolMsgs...)
+		if err := s.sessionSvc.Save(ctx, sess); err != nil {
+			return err
 		}
 	}
 
-	return fmt.Errorf("agent reached max iterations (%d) without resolving", opt.MaxIterations)
+	return fmt.Errorf("agent reached max iterations (%d) without resolving", *chatOpt.MaxIterations)
 }
 
-func buildChatOptions(opt *Option) []chat.OptionFunc {
-	var chatOpts []chat.OptionFunc
-	if opt.Temperature != nil {
-		chatOpts = append(chatOpts, chat.WithTemperature(*opt.Temperature))
-	}
-	if opt.MaxTokens != nil {
-		chatOpts = append(chatOpts, chat.WithMaxTokens(*opt.MaxTokens))
-	}
-	if len(opt.Tools) > 0 {
-		chatOpts = append(chatOpts, chat.WithTools(opt.Tools))
-	}
-	return chatOpts
+// ==========================================
+// agentEventReader: 内部流式读取通道
+// ==========================================
+
+// StreamEventSender 定义流式事件发送的契约
+type StreamEventSender interface {
+	Send(msg *message.StreamMessage) bool
 }
 
-// agentEventReader 实现 message.StreamMessageReader 接口
 type agentEventReader struct {
 	ch     chan *message.StreamMessage
 	errCh  chan error
@@ -516,7 +213,7 @@ func (r *agentEventReader) Close() error {
 	return nil
 }
 
-func (r *agentEventReader) send(ev *message.StreamMessage) bool {
+func (r *agentEventReader) Send(ev *message.StreamMessage) bool {
 	select {
 	case r.ch <- ev:
 		return true
@@ -531,6 +228,5 @@ func (r *agentEventReader) sendErr(err error) {
 	select {
 	case r.errCh <- err:
 	default:
-		// 如果已经写入过错误，不再重复写入
 	}
 }
