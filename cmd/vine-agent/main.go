@@ -25,13 +25,21 @@ func main() {
 
 	// 1. 加载配置
 	cfg := config.DefaultConfig()
+	if _, err := os.Stat("config.yaml"); err == nil {
+		if fileCfg, err := config.LoadConfigFromFile("config.yaml"); err == nil {
+			cfg = fileCfg
+			logger.Println("成功加载本地 config.yaml 配置")
+		} else {
+			logger.Printf("加载 config.yaml 失败，使用默认配置: %v\n", err)
+		}
+	}
 
 	// 2. 初始化持久化层仓储
-	sessionStore, err := sqlite.NewSessionStore(cfg.SQLiteDBPath)
+	sessionStore, err := sqlite.NewSessionStore(cfg.Storage.SQLiteDBPath)
 	if err != nil {
 		logger.Fatalf("初始化 SQLite 仓储失败: %v", err)
 	}
-	profileRepo := file.NewFileProfileRepository(cfg.ProfileDir)
+	profileRepo := file.NewFileProfileRepository(cfg.Storage.ProfileDir)
 
 	// 3. 初始化大模型客户端与提取器
 	apiKey := os.Getenv("DEEPSEEK_API_KEY")
