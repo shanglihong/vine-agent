@@ -207,6 +207,8 @@ func (h *APIHandler) Chat(w http.ResponseWriter, r *http.Request) {
 			switch msg.Type {
 			case message.StreamMessageTextDelta:
 				sendSSEEvent(w, "text_delta", msg.Content)
+			case message.StreamMessageReasoningDelta:
+				sendSSEEvent(w, "reasoning_delta", msg.Content)
 			case message.StreamMessageToolCall:
 				sendSSEEvent(w, "tool_call", msg.ToolCall)
 			case message.StreamMessageToolResult:
@@ -301,6 +303,8 @@ func (h *APIHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 			switch msg.Type {
 			case message.StreamMessageTextDelta:
 				sendSSEEvent(w, "text_delta", msg.Content)
+			case message.StreamMessageReasoningDelta:
+				sendSSEEvent(w, "reasoning_delta", msg.Content)
 			case message.StreamMessageToolCall:
 				sendSSEEvent(w, "tool_call", msg.ToolCall)
 			case message.StreamMessageToolResult:

@@ -82,7 +82,10 @@ func sendSSEEvent(w io.Writer, eventType string, data any) {
 	var payload []byte
 	var err error
 	if str, ok := data.(string); ok {
-		payload = []byte(str)
+		payload, err = json.Marshal(str)
+		if err != nil {
+			payload = []byte(str)
+		}
 	} else {
 		payload, err = json.Marshal(data)
 		if err != nil {

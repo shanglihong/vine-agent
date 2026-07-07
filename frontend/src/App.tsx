@@ -61,6 +61,9 @@ export default function App() {
   // 状态：深色/明亮模式
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
 
+  // 状态：长期记忆画像面板折叠状态，默认折叠
+  const [isMemoryCollapsed, setIsMemoryCollapsed] = useState<boolean>(true);
+
 
 
   // 强视觉会话状态指示 Badge 标签 (带 LED 脉冲呼吸指示点)
@@ -404,8 +407,26 @@ export default function App() {
   const handleSSEChunk = (event: string, data: string) => {
     switch (event) {
       case 'text_delta':
+        let text = data;
+        try {
+          text = JSON.parse(data);
+        } catch {
+          // 降级使用 raw data
+        }
         updateLastAiMessage((msg) => {
-          msg.content += data;
+          msg.content += text;
+        });
+        break;
+
+      case 'reasoning_delta':
+        let rText = data;
+        try {
+          rText = JSON.parse(data);
+        } catch {
+          // 降级使用 raw data
+        }
+        updateLastAiMessage((msg) => {
+          msg.reasoning_content = (msg.reasoning_content || '') + rText;
         });
         break;
 
@@ -592,6 +613,27 @@ export default function App() {
               {renderStatusBadge()}
             </div>
           </div>
+          <button 
+            className="toggle-memory-btn" 
+            onClick={() => setIsMemoryCollapsed(!isMemoryCollapsed)}
+            title={isMemoryCollapsed ? "展开记忆面板" : "折叠记忆面板"}
+          >
+            {isMemoryCollapsed ? (
+              /* 折叠状态：显示“面板隐藏”标识 — 两条竖线 + 左展开箭头 */
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <line x1="15" y1="3" x2="15" y2="21" />
+                <polyline points="11 9 8 12 11 15" />
+              </svg>
+            ) : (
+              /* 展开状态：显示“面板可见”标识 — 两条竖线 + 右折叠箭头 */
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <line x1="15" y1="3" x2="15" y2="21" />
+                <polyline points="13 9 16 12 13 15" />
+              </svg>
+            )}
+          </button>
         </header>
 
         <div className="message-stream">
@@ -833,7 +875,7 @@ export default function App() {
       </main>
 
       {/* 3. 右栏：画像长期记忆面板 */}
-      <aside className="memory-panel">
+      <aside className={`memory-panel ${isMemoryCollapsed ? 'collapsed' : ''}`}>
         <header className="memory-header">
           <div className="memory-header-title">
             {/* Memory Vineyard 的 Header 图标 - 采用 Vine 科技葡萄图标 */}
