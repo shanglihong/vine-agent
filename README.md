@@ -94,3 +94,7 @@ make run-cli
 * **消息流实体 (Message)**：[doc/message.md](doc/message.md)
 * **工具执行规范 (Tool)**：[doc/tool.md](doc/tool.md)
 * **用户信息域 (User)**：[doc/user.md](doc/user.md)
+
+
+## TODO
+Plan(./plan.md)
