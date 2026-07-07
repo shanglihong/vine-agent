@@ -97,4 +97,4 @@ make run-cli
 
 
 ## TODO
-Plan(./plan.md)
+Plan(plan.md)
