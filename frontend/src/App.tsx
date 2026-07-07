@@ -46,23 +46,78 @@ export default function App() {
     pending_tools: PendingTool[];
   } | null>(null);
 
+  // 控制推理思考流的折叠/展开状态，默认 key 对应 message 索引，值为 false 表示折叠
+  const [expandedReasoning, setExpandedReasoning] = useState<Record<number, boolean>>({});
+
+  // 状态：深色/明亮模式
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+
   // 本地默认用户 ID
   const userID = 'user_test_999';
+
+  // 强视觉会话状态指示 Badge 标签 (带 LED 脉冲呼吸指示点)
+  const renderStatusBadge = () => {
+    if (isStreaming) {
+      return (
+        <span className="status-badge-header thinking">
+          <span className="status-dot"></span>
+          Responding
+        </span>
+      );
+    }
+    if (pendingInterrupt) {
+      return (
+        <span className="status-badge-header pending">
+          <span className="status-dot"></span>
+          Pending Approval
+        </span>
+      );
+    }
+    return (
+      <span className="status-badge-header ready">
+        <span className="status-dot"></span>
+        Ready
+      </span>
+    );
+  };
 
   // 用于在流式对话中动态更新的消息缓冲区
   const streamingMsgRef = useRef<Message | null>(null);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
 
-  // 初始化加载
+  // 初始化加载及主题检测
   useEffect(() => {
     loadSessions();
     loadProfile();
+
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+      setIsDarkMode(true);
+      document.documentElement.classList.add('dark');
+    } else {
+      setIsDarkMode(false);
+      document.documentElement.classList.remove('dark');
+    }
   }, []);
 
   // 消息更新后滚动到底部
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isStreaming, pendingInterrupt]);
+
+  // 切换主题
+  const toggleTheme = () => {
+    if (isDarkMode) {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+      setIsDarkMode(false);
+    } else {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+      setIsDarkMode(true);
+    }
+  };
 
   // 1. 获取会话历史列表
   const loadSessions = async () => {
@@ -89,6 +144,7 @@ export default function App() {
     if (isStreaming) return;
     setCurrentSessionID(id);
     setPendingInterrupt(null);
+    setExpandedReasoning({}); // 重置折叠状态
     try {
       const res = await fetch(`/api/sessions/${id}/messages`);
       if (res.ok) {
@@ -267,7 +323,7 @@ export default function App() {
     loadSessions();
   };
 
-  // 8. 核心 SSE 响应读取解析器 (零第三方依赖，解析 POST 流)
+  // 8. 核心 SSE 响应读取解析器
   const parseSSEResponse = async (res: Response) => {
     const reader = res.body?.getReader();
     if (!reader) return;
@@ -307,7 +363,6 @@ export default function App() {
         break;
 
       case 'tool_call':
-        // 可以根据需要把工具调用添加到思考流中渲染展示
         try {
           const toolCall = JSON.parse(data);
           updateLastAiMessage((msg) => {
@@ -371,24 +426,53 @@ export default function App() {
     });
   };
 
+  // 快捷卡片填充并聚焦
+  const handleQuickAction = (text: string) => {
+    if (pendingInterrupt || isStreaming || !currentSessionID) return;
+    setInputValue(text);
+  };
+
   return (
     <div className="portal-container">
-      {/* 1. 左栏：会话列表 */}
+      {/* 1. 左栏：会话历史列表 (Sidebar) */}
       <aside className="sidebar">
         <div className="sidebar-header">
-          <div className="logo-icon">🍇</div>
-          <h1>Vine-Agent Portal</h1>
+          <div className="logo-container">
+            {/* 符合 Vine (葡萄藤蔓) 科技拓扑网格风格的 LOGO */}
+            <svg viewBox="0 0 24 24" className="logo-svg" style={{ fill: 'none', stroke: 'var(--primary-color)', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }} xmlns="http://www.w3.org/2000/svg">
+              <line x1="8" y1="8" x2="12" y2="7" />
+              <line x1="12" y1="7" x2="16" y2="8" />
+              <line x1="8" y1="8" x2="10" y2="12" />
+              <line x1="12" y1="7" x2="10" y2="12" />
+              <line x1="12" y1="7" x2="14" y2="12" />
+              <line x1="16" y1="8" x2="14" y2="12" />
+              <line x1="10" y1="12" x2="14" y2="12" />
+              <line x1="10" y1="12" x2="12" y2="16" />
+              <line x1="14" y1="12" x2="12" y2="16" />
+              <circle cx="8" cy="8" r="2" fill="var(--primary-color)" />
+              <circle cx="12" cy="7" r="2" fill="var(--primary-color)" />
+              <circle cx="16" cy="8" r="2" fill="var(--primary-color)" />
+              <circle cx="10" cy="12" r="2" fill="var(--primary-color)" />
+              <circle cx="14" cy="12" r="2" fill="var(--primary-color)" />
+              <circle cx="12" cy="16" r="2" fill="var(--primary-color)" />
+              <path d="M12 4.5V2.5c0-.5.4-.8.8-.8h1.2" />
+            </svg>
+            <h1>Vine-Agent</h1>
+          </div>
         </div>
+        
+        {/* 新对话按钮 */}
         <button className="new-chat-btn" onClick={createNewSession}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          新建会话
+          New chat
         </button>
+
         <div className="session-list">
           {sessions.map((s) => (
-            <div
+            <button
               key={s.id}
               className={`session-item ${currentSessionID === s.id ? 'active' : ''}`}
               onClick={() => selectSession(s.id)}
@@ -396,73 +480,185 @@ export default function App() {
               <div className="session-name">{s.id}</div>
               <div className="session-meta">
                 <span>{new Date(s.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                {s.Status === 'pending_confirmation' && (
-                  <span className="status-badge pending">待审批</span>
+                {s.id === currentSessionID && isStreaming && (
+                  <svg className="spin-svg" viewBox="0 0 24 24" style={{ width: '10px', height: '10px', stroke: 'var(--primary-color)', strokeWidth: 3, fill: 'none', strokeLinecap: 'round', marginLeft: '6px', animation: 'spin 1.2s linear infinite', flexShrink: 0 }} xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="10" strokeDasharray="30 12" />
+                  </svg>
+                )}
+                {(s.status === 'pending_confirmation' || (s.id === currentSessionID && pendingInterrupt)) && (
+                  <span className="status-badge pending" style={{ marginLeft: '6px', fontSize: '9px', padding: '1.5px 5px', lineHeight: 1 }}>PENDING</span>
                 )}
               </div>
-            </div>
+            </button>
           ))}
         </div>
+
         <div className="user-footer">
           <div className="user-avatar">U</div>
-          <div>
-            <div style={{ fontWeight: 600 }}>Test User</div>
-            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>ID: {userID}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, fontSize: '12px' }}>{userID}</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Status: Active</div>
           </div>
+          {/* 夜间模式切换按钮 */}
+          <button 
+            onClick={toggleTheme} 
+            className="theme-toggle-btn"
+            title={isDarkMode ? '切换至明亮模式' : '切换至暗色模式'}
+          >
+            {isDarkMode ? (
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            )}
+          </button>
         </div>
       </aside>
 
       {/* 2. 中栏：对话核心区 */}
       <main className="chat-area">
         <header className="chat-header">
-          <div className="chat-title">
-            <h2>
-              <span style={{ color: 'var(--accent-purple)' }}>●</span> {currentSessionID || '未选择会话'}
-            </h2>
-            <div className="chat-desc">
-              {isStreaming ? 'AI 正在推理中...' : pendingInterrupt ? '等待敏感操作授权确认' : '就绪'}
+          <div className="chat-title" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* 顶栏左侧会话 (Session) 含义的对话气泡图标 */}
+            <svg viewBox="0 0 24 24" style={{ width: '18px', height: '18px', fill: 'none', stroke: 'var(--primary-color)', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', flexShrink: 0 }} xmlns="http://www.w3.org/2000/svg">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <h2 style={{ fontSize: '14.5px', fontWeight: 600, color: 'var(--text-main)', margin: 0, lineHeight: 1 }}>
+                {currentSessionID || 'No active session'}
+              </h2>
+              {renderStatusBadge()}
             </div>
           </div>
         </header>
 
         <div className="message-stream">
           {messages.length === 0 ? (
-            <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🍇</div>
-              <p style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text-secondary)' }}>开始与智能体进行对话</p>
-              <p style={{ fontSize: '12px', marginTop: '6px' }}>系统会在多轮交互后自动提取您的长期偏好与客观事实画像</p>
+            <div className="empty-state-thesis">
+              <div className="empty-logo-container" style={{ border: 'none', background: 'transparent', boxShadow: 'none', width: 'auto', height: 'auto', marginBottom: '16px' }}>
+                {/* 首页大图标：符合 Vine 的科技风格葡萄图标 */}
+                <svg viewBox="0 0 24 24" style={{ width: '42px', height: '42px', fill: 'none', stroke: 'var(--primary-color)', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }} xmlns="http://www.w3.org/2000/svg">
+                  <line x1="8" y1="8" x2="12" y2="7" />
+                  <line x1="12" y1="7" x2="16" y2="8" />
+                  <line x1="8" y1="8" x2="10" y2="12" />
+                  <line x1="12" y1="7" x2="10" y2="12" />
+                  <line x1="12" y1="7" x2="14" y2="12" />
+                  <line x1="16" y1="8" x2="14" y2="12" />
+                  <line x1="10" y1="12" x2="14" y2="12" />
+                  <line x1="10" y1="12" x2="12" y2="16" />
+                  <line x1="14" y1="12" x2="12" y2="16" />
+                  <circle cx="8" cy="8" r="2" fill="var(--primary-color)" />
+                  <circle cx="12" cy="7" r="2" fill="var(--primary-color)" />
+                  <circle cx="16" cy="8" r="2" fill="var(--primary-color)" />
+                  <circle cx="10" cy="12" r="2" fill="var(--primary-color)" />
+                  <circle cx="14" cy="12" r="2" fill="var(--primary-color)" />
+                  <circle cx="12" cy="16" r="2" fill="var(--primary-color)" />
+                  <path d="M12 4.5V2.5c0-.5.4-.8.8-.8h1.2" />
+                </svg>
+              </div>
+              <h3>How can I help you today?</h3>
+              
+              {/* ChatGPT 风格快捷动作网格 */}
+              <div className="quick-action-cards">
+                <div className="action-card" onClick={() => handleQuickAction('分析我近期的偏好有哪些新的进化？')}>
+                  <div className="action-card-title">🔍 分析近期偏好</div>
+                  <div className="action-card-desc">探索在近期对话流中，系统自动归纳的最新行为特征。</div>
+                </div>
+                <div className="action-card" onClick={() => handleQuickAction('检查当前会话中是否有挂起的敏感工具调用？')}>
+                  <div className="action-card-title">🛡 安全审查拦截</div>
+                  <div className="action-card-desc">检测是否存在挂起、需要人工干预审批的敏感工具执行。</div>
+                </div>
+                <div className="action-card" onClick={() => handleQuickAction('梳理一下你目前记录关于我的客观事实有哪些？')}>
+                  <div className="action-card-title">📂 整理长期记忆</div>
+                  <div className="action-card-desc">打印已存入数据库的客观事实事实画像列表。</div>
+                </div>
+                <div className="action-card" onClick={() => handleQuickAction('开始一个新的系统测试，帮我调用几个工具试试。')}>
+                  <div className="action-card-title">⚙️ 发起工具测试</div>
+                  <div className="action-card-desc">输入测试命令，让智能体尝试调用底层预置的服务。</div>
+                </div>
+              </div>
             </div>
           ) : (
             messages.map((m, idx) => {
               if (m.role === 'system') {
                 return (
-                  <div key={idx} style={{ textAlign: 'center', margin: '8px 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    <span style={{ background: 'rgba(255,255,255,0.03)', padding: '6px 12px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      {m.content}
+                  <div key={idx} style={{ textAlign: 'center', margin: '12px 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    <span style={{ padding: '4px 12px', borderRadius: '12px', background: '#f4f4f5', border: '1px solid var(--border-color)', fontSize: '11px', display: 'inline-block' }}>
+                      System Message: {m.content}
                     </span>
                   </div>
                 );
               }
               const isUser = m.role === 'user';
+              // 是否展开推理日志，默认展开。若在该 map 节点被手动置为 false，则折叠。
+              const isReasoningExpanded = expandedReasoning[idx] !== false;
+
               return (
                 <div key={idx} className={`message-wrapper ${isUser ? 'user' : 'assistant'}`}>
+                  {/* 对话头像：USER 和 AI 均在左侧完美对齐呈现 */}
+                  <div className="message-avatar" style={{ 
+                    background: isUser ? (isDarkMode ? '#334155' : '#e2e8f0') : 'var(--ai-accent)', 
+                    color: isUser ? (isDarkMode ? '#cbd5e1' : '#475569') : '#ffffff', 
+                    borderColor: isUser ? 'var(--border-color)' : 'transparent',
+                    fontSize: '12px',
+                    fontWeight: 600
+                  }}>
+                    {isUser ? (
+                      'U'
+                    ) : (
+                      // AI 专用 DeepSeek 星体神经网络蓝标
+                      <svg viewBox="0 0 24 24" style={{ fill: '#ffffff', stroke: 'none' }} xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" />
+                        <circle cx="12" cy="12" r="2.5" />
+                        <circle cx="12" cy="7" r="1.5" />
+                        <circle cx="12" cy="17" r="1.5" />
+                        <circle cx="7" cy="12" r="1.5" />
+                        <circle cx="17" cy="12" r="1.5" />
+                      </svg>
+                    )}
+                  </div>
+
                   <div className="chat-bubble">
-                    {/* 推理思考展示块 */}
+                    {/* 推理思考展示块 (DeepSeek Accordion 风格) */}
                     {!isUser && m.reasoning_content && (
-                      <div className="reasoning-container">
-                        <div className="reasoning-header">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'spin 4s linear infinite' }}>
-                            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+                      <div className="reasoning-accordion">
+                        <div 
+                          className={`reasoning-toggle ${isReasoningExpanded ? 'open' : ''}`}
+                          onClick={() => {
+                            setExpandedReasoning(prev => ({
+                              ...prev,
+                              [idx]: !isReasoningExpanded
+                            }));
+                          }}
+                        >
+                          {/* 旋转的小箭头 */}
+                          <svg className="reasoning-toggle-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="9 18 15 12 9 6"></polyline>
                           </svg>
-                          思考推理链
+                          <span>思考过程</span>
                         </div>
-                        {m.reasoning_content}
+                        {isReasoningExpanded && (
+                          <div className="reasoning-content">
+                            {m.reasoning_content}
+                          </div>
+                        )}
                       </div>
                     )}
                     {/* 主答复文本 */}
                     <div style={{ whiteSpace: 'pre-wrap' }}>
                       {m.content || (!isUser && isStreaming && idx === messages.length - 1 ? (
-                        <span className="typing-cursor">思考中...</span>
+                        <span className="typing-cursor">正在思考...</span>
                       ) : '')}
                     </div>
                   </div>
@@ -475,18 +671,20 @@ export default function App() {
           {pendingInterrupt && (
             <div className="interrupt-approval-card">
               <div className="interrupt-header">
-                <span className="warning-icon">⚠</span>
-                <span className="interrupt-title">高危敏感工具审批申请</span>
+                <svg className="warning-icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+                </svg>
+                <span className="interrupt-title">安全授权确认: 检测到敏感工具调用</span>
               </div>
               <p className="interrupt-desc">
-                智能体请求执行以下具有修改/清除性质的高危接口动作，根据系统安全规则已被拦截。请对调用请求做出审核决策：
+                系统检测到智能体发出包含敏感修改或删除动作的工具调用请求。该执行链已自动拦截并挂起，请审查工具参数以授权批准：
               </p>
               <div className="tools-requested-list">
                 {pendingInterrupt.pending_tools.map((tool) => (
                   <div key={tool.id} className="tool-req-item">
-                    <div className="tool-req-name">⚙ 工具名称: {tool.function.name}</div>
+                    <div className="tool-req-name">🔧 拟调用工具: {tool.function.name}</div>
                     <div className="tool-req-args">
-                      <strong>参数明细:</strong>
+                      <strong>参数明细 (JSON):</strong>
                       <br />
                       {tool.function.arguments}
                     </div>
@@ -495,31 +693,49 @@ export default function App() {
               </div>
               <div className="approval-btn-group">
                 <button className="btn-approve" onClick={handleApproveInterrupt}>
-                  同意并授权执行
+                  授权执行
                 </button>
                 <button className="btn-reject" onClick={handleRejectInterrupt}>
-                  安全拒绝
+                  拒绝操作
                 </button>
               </div>
             </div>
           )}
 
           {isStreaming && messages[messages.length - 1]?.role === 'user' && (
-            <div className="tool-call-indicator">
-              <div className="pulse-dot"></div>
-              <span>智能体正在生成分析中...</span>
+            <div className="message-wrapper assistant">
+              <div className="message-avatar" style={{ background: 'var(--ai-accent)' }}>
+                <svg viewBox="0 0 24 24" style={{ fill: '#ffffff' }} xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" />
+                  <circle cx="12" cy="12" r="2.5" />
+                  <circle cx="12" cy="7" r="1.5" />
+                  <circle cx="12" cy="17" r="1.5" />
+                  <circle cx="7" cy="12" r="1.5" />
+                  <circle cx="17" cy="12" r="1.5" />
+                </svg>
+              </div>
+              <div className="chat-bubble">
+                <div className="tool-call-indicator">
+                  <div className="pulse-dot"></div>
+                  <span>正在提炼和计算智能体响应...</span>
+                </div>
+              </div>
             </div>
           )}
 
           <div ref={messageEndRef} />
         </div>
 
+        {/* 底部输入框区域 */}
         <form className="input-area" onSubmit={handleSendMessage}>
           <div className="input-container">
+            <div className="model-selector-pill">
+              <span>DeepSeek-R1</span>
+            </div>
             <input
               type="text"
               className="chat-input-box"
-              placeholder={pendingInterrupt ? '当前处于等待授权拦截状态，请做出决策' : '输入消息以交互...'}
+              placeholder={pendingInterrupt ? '当前会话已挂起，请审查上面的敏感操作安全卡片。' : '给 Vine-Agent 发送消息...'}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               disabled={isStreaming || !!pendingInterrupt || !currentSessionID}
@@ -527,11 +743,13 @@ export default function App() {
             <button
               type="submit"
               className="send-btn"
+              style={{ background: inputValue.trim() ? 'var(--ai-accent)' : '#e5e7eb' }}
               disabled={!inputValue.trim() || isStreaming || !!pendingInterrupt || !currentSessionID}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              {/* 向上发送箭头 */}
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="19" x2="12" y2="5"></line>
+                <polyline points="5 12 12 5 19 12"></polyline>
               </svg>
             </button>
           </div>
@@ -542,17 +760,20 @@ export default function App() {
       <aside className="memory-panel">
         <header className="memory-header">
           <div className="memory-header-title">
-            <span style={{ fontSize: '18px' }}>🧠</span>
-            <h3>用户长期记忆画像</h3>
+            {/* Memory Vineyard 的 Header 图标 - 采用 Vine 科技葡萄图标 */}
+            <svg viewBox="0 0 24 24" style={{ width: '16px', height: '16px', fill: 'none', stroke: 'var(--primary-color)', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', marginRight: '8px' }} xmlns="http://www.w3.org/2000/svg">
+              <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.44 2.5 2.5 0 0 1 0-3.12 3 3 0 0 1 0-3.88 2.5 2.5 0 0 1 0-3.12A2.5 2.5 0 0 1 9.5 2zM14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.44 2.5 2.5 0 0 0 0-3.12 3 3 0 0 0 0-3.88 2.5 2.5 0 0 0 0-3.12A2.5 2.5 0 0 0 14.5 2z" />
+              <path d="M12 5h1M12 9h2M12 13h1M12 17h2M12 7h-1M12 11h-2M12 15h-1M12 19h-2" />
+            </svg>
+            <h3>Memory Vineyard</h3>
           </div>
           <button
             className={`evolve-btn ${isEvolving ? 'spinning' : ''}`}
             onClick={evolveProfile}
             disabled={isEvolving || !currentSessionID}
-            title="强制触发增量会话记忆演化"
+            title="手动归纳并提炼对话中的长期画像"
           >
-            <span className="icon">🔄</span>
-            {isEvolving ? '演化提炼中...' : 'Sync & Evolve'}
+            {isEvolving ? 'Distilling...' : 'Distill'}
           </button>
         </header>
 
@@ -560,11 +781,13 @@ export default function App() {
           {/* A. 个人偏好 */}
           <div className="memory-sec preferences">
             <div className="memory-sec-title">
-              <span className="icon">⭐</span>
-              个人偏好 (Preferences)
+              <svg className="memory-sec-title-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+              </svg>
+              User Preferences
             </div>
             {userProfile.preferences.length === 0 ? (
-              <div className="empty-state">暂未提炼出明确的用户偏好</div>
+              <div className="empty-state">No preferences distilled yet.</div>
             ) : (
               <ul className="memory-list">
                 {userProfile.preferences.map((p, i) => (
@@ -576,14 +799,16 @@ export default function App() {
             )}
           </div>
 
-          {/* B. 静态事实 */}
+          {/* B. 客观事实 */}
           <div className="memory-sec facts">
             <div className="memory-sec-title">
-              <span className="icon">📌</span>
-              客观事实 (Facts)
+              <svg className="memory-sec-title-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
+              </svg>
+              Objective Facts
             </div>
             {userProfile.facts.length === 0 ? (
-              <div className="empty-state">暂未捕捉到相关的静态事实信息</div>
+              <div className="empty-state">No factual memory nodes recorded.</div>
             ) : (
               <ul className="memory-list">
                 {userProfile.facts.map((f, i) => (

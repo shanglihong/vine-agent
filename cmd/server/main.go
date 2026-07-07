@@ -128,9 +128,9 @@ func (m *mockChatModel) Stream(ctx context.Context, messages []message.Message, 
 		defer close(ch)
 
 		// 1. 模拟思考流 (Reasoning Delta)
-		ch <- &message.StreamMessage{Type: message.StreamMessageReasoningDelta, Content: "▶ 系统检测到输入... 开始推理意图\n"}
+		ch <- &message.StreamMessage{Type: message.StreamMessageReasoningDelta, Content: "系统检测到输入... 开始推理意图\n"}
 		time.Sleep(200 * time.Millisecond)
-		ch <- &message.StreamMessage{Type: message.StreamMessageReasoningDelta, Content: "▶ 正在评估是否调用已声明的外部工具\n"}
+		ch <- &message.StreamMessage{Type: message.StreamMessageReasoningDelta, Content: "正在评估是否调用已声明的外部工具\n"}
 		time.Sleep(250 * time.Millisecond)
 
 		// 2. 如果是工具返回值返回的后续多轮对话，执行总结并回复
