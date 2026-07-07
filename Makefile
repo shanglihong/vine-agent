@@ -115,13 +115,13 @@ init-force: check-env
 
 # --- 前端命令 ---
 
+install-frontend: check-env
+	cd frontend && npm install
+
 run-frontend: check-env
 	cd frontend && npm run dev
 
-# --- 依赖安装 ---
-
-install-frontend: check-env
-	cd frontend && npm install
+# --- 一键依赖安装 ---
 
 install: check-env tidy install-frontend
 

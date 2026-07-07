@@ -6,7 +6,7 @@ Vine-Agent 是一个基于 Go 语言、DDD（领域驱动设计）架构与 Reac
 
 ## 快速开始
 
-在开始运行前，请先准备好本地的 Go (>= 1.25.0)、Node.js (npm) 和 SQLite3 环境。
+在开始运行前，请先准备好本地的 Go (>= 1.25.0)、Node.js (npm)、SQLite3 环境以及大模型 API 密钥（`DEEPSEEK_API_KEY`）。
 
 ### 1. 检查开发依赖
 ```bash
