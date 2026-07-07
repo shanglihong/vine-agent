@@ -20,6 +20,7 @@ import (
 	"vine-agent/domain/memory/profile"
 	"vine-agent/domain/memory/session"
 	"vine-agent/domain/message"
+	"vine-agent/domain/tool"
 	"vine-agent/domain/user"
 	"vine-agent/infra/api"
 	"vine-agent/infra/client/deepseek"
@@ -27,6 +28,7 @@ import (
 	"vine-agent/infra/extractor"
 	"vine-agent/infra/persistence/file"
 	"vine-agent/infra/persistence/sqlite"
+	"vine-agent/infra/tools"
 )
 
 func main() {
@@ -84,7 +86,11 @@ func main() {
 	userAppSvc := user_app.NewUserAppService(userDomainSvc)
 
 	// 6. 构造 API 控制器与注册路由
-	handler := api.NewAPIHandler(agentSvc, interactionSvc, sessionSvc, profileRepo, evolutionAppSvc, userAppSvc, logger)
+	appTools := []tool.Tool{
+		tools.NewWeatherTool(),
+		tools.NewCurrentCityTool(),
+	}
+	handler := api.NewAPIHandler(agentSvc, interactionSvc, sessionSvc, profileRepo, evolutionAppSvc, userAppSvc, appTools, logger)
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 

@@ -35,11 +35,12 @@ func NewAPIHandler(
 	profileRepo profile.ProfileRepository,
 	evolutionAppSvc *memory_app.EvolutionAppService,
 	userAppSvc *user_app.UserAppService,
+	tools []tool.Tool,
 	logger *log.Logger,
 ) *APIHandler {
-	tools := map[string]tool.Tool{
-		"get_weather":      &getWeatherTool{},
-		"get_current_city": &getCurrentCityTool{},
+	toolsMap := make(map[string]tool.Tool)
+	for _, t := range tools {
+		toolsMap[t.Info().Name] = t
 	}
 	return &APIHandler{
 		agentSvc:        agentSvc,
@@ -49,7 +50,7 @@ func NewAPIHandler(
 		evolutionAppSvc: evolutionAppSvc,
 		userAppSvc:      userAppSvc,
 		logger:          logger,
-		tools:           tools,
+		tools:           toolsMap,
 	}
 }
 
