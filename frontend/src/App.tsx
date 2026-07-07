@@ -1,4 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { marked } from 'marked';
+
+// 配置 marked，使其支持单换行解析为 <br> 标签
+marked.setOptions({
+  breaks: true,
+});
 
 // 定义数据契约
 interface Message {
@@ -203,7 +209,11 @@ export default function App() {
       const res = await fetch(`/api/users/${userID}/profile`);
       if (res.ok) {
         const data = await res.json();
-        setUserProfile(data);
+        setUserProfile({
+          user_id: data.user_id,
+          preferences: data.preferences || [],
+          facts: data.facts || [],
+        });
       }
     } catch (err) {
       console.error('加载画像失败:', err);
@@ -220,7 +230,11 @@ export default function App() {
       });
       if (res.ok) {
         const data = await res.json();
-        setUserProfile(data);
+        setUserProfile({
+          user_id: data.user_id,
+          preferences: data.preferences || [],
+          facts: data.facts || [],
+        });
       }
     } catch (err) {
       console.error('触发记忆演化失败:', err);
@@ -656,10 +670,18 @@ export default function App() {
                       </div>
                     )}
                     {/* 主答复文本 */}
-                    <div style={{ whiteSpace: 'pre-wrap' }}>
-                      {m.content || (!isUser && isStreaming && idx === messages.length - 1 ? (
-                        <span className="typing-cursor">正在思考...</span>
-                      ) : '')}
+                    <div className={isUser ? "message-content-user" : "markdown-body"}>
+                      {m.content ? (
+                        isUser ? (
+                          <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
+                        ) : (
+                          <div dangerouslySetInnerHTML={{ __html: marked.parse(m.content) as string }} />
+                        )
+                      ) : (
+                        !isUser && isStreaming && idx === messages.length - 1 ? (
+                          <span className="typing-cursor">正在思考...</span>
+                        ) : ''
+                      )}
                     </div>
                   </div>
                 </div>

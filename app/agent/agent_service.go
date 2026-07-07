@@ -166,6 +166,11 @@ func (s *agentService) runStreamLoop(ctx context.Context, sess *session.Session,
 			return err
 		}
 
+		// 若没有工具调用，说明本次大模型已给出最终回答，直接成功退出循环
+		if len(assistantMsg.ToolCalls) == 0 {
+			return nil
+		}
+
 		toolResults := utils.ParallelMap(ctx, assistantMsg.ToolCalls, func(taskCtx context.Context, tc message.ToolCall) (message.Message, error) {
 			_ = s.publishStreamMessage(taskCtx, sess, message.NewStreamMessageToolCall(&tc))
 			toolMsg, toolErr := ExecuteToolCall(taskCtx, tc, chatOpt.Tools[tc.Function.Name])
