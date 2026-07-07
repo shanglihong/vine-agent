@@ -39,7 +39,7 @@ func NewAPIHandler(
 ) *APIHandler {
 	tools := map[string]tool.Tool{
 		"get_weather":      &getWeatherTool{},
-		"delete_user_data": &deleteUserDataTool{},
+		"get_current_city": &getCurrentCityTool{},
 	}
 	return &APIHandler{
 		agentSvc:        agentSvc,

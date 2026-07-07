@@ -12,8 +12,8 @@ endif
 # 将 ~ 或相对路径通过 shell 展开为绝对路径，方便 Makefile 进行 -f 检测与 mkdir
 DB_PATH := $(shell eval echo '$(DB_PATH)')
 DB_DIR := $(shell dirname '$(DB_PATH)' 2>/dev/null)
-# DB_PATH := ./data/db/memory.db
-# DB_DIR := ./data/db
+DB_PATH := ./data/db/memory.db
+DB_DIR := ./data/db
 
 .PHONY: help build run test lint tidy init init-force install-frontend run-frontend dev install check-env
 

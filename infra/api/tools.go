@@ -44,32 +44,21 @@ func (t *getWeatherTool) Execute(ctx context.Context, args string) (string, erro
 	return fmt.Sprintf("【工具反馈】城市：%s，天气：晴转多云，气温：28℃，PM2.5：35，空气质量优。", params.Location), nil
 }
 
-type deleteUserDataTool struct{}
+type getCurrentCityTool struct{}
 
-func (t *deleteUserDataTool) Info() tool.Definition {
+func (t *getCurrentCityTool) Info() tool.Definition {
 	return tool.Definition{
-		Name:        "delete_user_data",
-		Description: "高危操作：清空该用户的全部偏好和事实长期记忆 (需要人工确认)",
+		Name:        "get_current_city",
+		Description: "获取用户当前所在的城市",
 		Parameters: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"user_id": map[string]any{
-					"type":        "string",
-					"description": "要删除数据的用户唯一标识 ID",
-				},
-			},
-			"required": []any{"user_id"},
+			"type":       "object",
+			"properties": map[string]any{},
+			"required":   []any{},
 		},
-		RequiresConfirmation: true,
+		RequiresConfirmation: false,
 	}
 }
 
-func (t *deleteUserDataTool) Execute(ctx context.Context, args string) (string, error) {
-	var params struct {
-		UserID string `json:"user_id"`
-	}
-	if err := json.Unmarshal([]byte(args), &params); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("【工具反馈】已成功执行敏感数据删除指令，用户 ID [%s] 的画像数据已被物理抹除。", params.UserID), nil
+func (t *getCurrentCityTool) Execute(ctx context.Context, args string) (string, error) {
+	return "【工具反馈】当前城市：杭州，省份：浙江，国家：中国，时区：Asia/Shanghai。", nil
 }

@@ -2,13 +2,10 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"sync"
-
-	"github.com/google/uuid"
 
 	"vine-agent/domain/chat"
-	"vine-agent/domain/event"
 	"vine-agent/domain/memory/session"
 	"vine-agent/domain/message"
 	"vine-agent/utils"
@@ -18,36 +15,24 @@ const defaultMaxIter int = 5
 
 var _ Service = (*agentService)(nil)
 
+type toolBeforeFunc func(message.ToolCall)
+type toolAfterFunc func(message.ToolCall, message.Message, error)
+
 // agentService 智能体应用层服务，整合了会话记忆持久化与多轮工具调用流迭代逻辑
 type agentService struct {
 	chatModel  chat.ChatModel
 	sessionSvc session.SessionService
-	publisher  event.Publisher
-
-	// 活跃通道管理器，订阅事件后路由分发
-	mu      sync.RWMutex
-	readers map[string]*agentEventReader
 }
 
 // NewService 构造一个新的 Service 实例
 func NewService(
 	chatModel chat.ChatModel,
 	sessionSvc session.SessionService,
-	publisher event.Publisher,
-	subscriber event.Subscriber,
 ) Service {
 	svc := &agentService{
 		chatModel:  chatModel,
 		sessionSvc: sessionSvc,
-		publisher:  publisher,
-		readers:    make(map[string]*agentEventReader),
 	}
-
-	if subscriber != nil {
-		// 自动订阅 SessionStream 领域事件话题，事件定义由 session 领域内聚提供
-		_ = subscriber.Subscribe(session.SessionStreamEventName, event.HandlerFunc(svc.handleStreamEvent))
-	}
-
 	return svc
 }
 
@@ -88,6 +73,7 @@ func (s *agentService) Stream(ctx context.Context, messages []message.Message, o
 		return nil, err
 	}
 
+	// 初始化读取器
 	subCtx, cancel := context.WithCancel(ctx)
 	reader := &agentEventReader{
 		ch:     make(chan *message.StreamMessage, 100),
@@ -96,15 +82,12 @@ func (s *agentService) Stream(ctx context.Context, messages []message.Message, o
 		cancel: cancel,
 	}
 
-	// 注册当前 Session 的活跃通道读取器
-	s.mu.Lock()
-	s.readers[sess.ID] = reader
-	s.mu.Unlock()
-
 	go func() {
-		err := s.runStreamLoop(subCtx, sess, opts)
-		// 无论迭代成功或出现异常，均发布结束事件以通知订阅端进行生命周期注销与关闭
-		_ = s.publishEndEvent(subCtx, sess, err)
+		loopErr := s.runStreamLoop(subCtx, reader, sess, opts)
+		if loopErr != nil {
+			reader.sendErr(loopErr)
+		}
+		defer reader.closeChannel()
 	}()
 
 	return reader, nil
@@ -129,7 +112,7 @@ func (s *agentService) acceptUserMessages(ctx context.Context, messages []messag
 	return sess, nil
 }
 
-func (s *agentService) runStreamLoop(ctx context.Context, sess *session.Session, opts []chat.OptionFunc) error {
+func (s *agentService) runStreamLoop(ctx context.Context, reader *agentEventReader, sess *session.Session, opts []chat.OptionFunc) error {
 	chatOpt := &chat.Option{}
 	for _, fn := range opts {
 		fn(chatOpt)
@@ -140,128 +123,93 @@ func (s *agentService) runStreamLoop(ctx context.Context, sess *session.Session,
 	}
 
 	for iter := 0; iter < *chatOpt.MaxIterations; iter++ {
-		// stream请求，并聚合响应消息分片
-		assistantMsg, err := func() (*message.Message, error) {
-			stream, err := s.chatModel.Stream(ctx, sess.Messages, opts...)
-			if err != nil {
-				return nil, err
+		assistantMsg, err := s.stream(ctx, sess.Messages, opts, func(msg *message.StreamMessage) {
+			if msg.IsDelta() {
+				reader.Send(msg)
 			}
-			defer func() {
-				_ = stream.Close()
-			}()
-			return message.ReadAndAssembleMessage(stream, func(msg *message.StreamMessage) {
-				if msg.IsDelta() {
-					_ = s.publishStreamMessage(ctx, sess, msg)
-				}
-			})
-		}()
-
+		})
 		if err != nil {
 			return err
 		}
-
-		// 响应追加会话并保存
 		sess.Messages = append(sess.Messages, *assistantMsg)
-		if err := s.sessionSvc.Save(ctx, sess); err != nil {
-			return err
+		if sessionErr := s.sessionSvc.Save(ctx, sess); sessionErr != nil {
+			return sessionErr
 		}
 
-		// 若没有工具调用，说明本次大模型已给出最终回答，直接成功退出循环
-		if len(assistantMsg.ToolCalls) == 0 {
+		// 没有工具调用，结束循环
+		if !assistantMsg.HasToolCalls() {
 			return nil
 		}
 
-		toolResults := utils.ParallelMap(ctx, assistantMsg.ToolCalls, func(taskCtx context.Context, tc message.ToolCall) (message.Message, error) {
-			_ = s.publishStreamMessage(taskCtx, sess, message.NewStreamMessageToolCall(&tc))
-			toolMsg, toolErr := ExecuteToolCall(taskCtx, tc, chatOpt.Tools[tc.Function.Name])
-			_ = s.publishStreamMessage(taskCtx, sess, message.NewStreamMessageToolResult(tc.ID, toolMsg.Content, toolErr))
-			return toolMsg, toolErr
-		}, utils.WithFailFast(false))
-
-		// 遍历工具执行结果，分三类处理：成功追加消息、待确认收集、其他失败追加错误消息
-		var pendingConfirms []message.ToolCall
-		for _, res := range toolResults {
-			if res.Error == nil {
-				sess.Messages = append(sess.Messages, res.O)
-			} else if _, ok := res.Error.(*ToolConfirmationRequiredError); ok {
-				pendingConfirms = append(pendingConfirms, res.I)
-			} else {
-				sess.Messages = append(sess.Messages, message.NewToolMessage(res.I.ID, res.Error.Error()))
-			}
+		toolBeforeExc := func(tc message.ToolCall) {
+			reader.Send(message.NewStreamMessageToolCall(&tc))
+		}
+		toolAfterExc := func(tc message.ToolCall, m message.Message, err error) {
+			reader.Send(message.NewStreamMessageToolResult(tc.ID, m.Content, err))
 		}
 
-		// 有待确认项：应用中断状态后提前返回（save best-effort）
-		if len(pendingConfirms) > 0 {
-			interruptErr := session.NewPendingConfirmationError(sess.ID, assistantMsg, pendingConfirms)
+		results, pendingResults := s.toolExc(ctx, toolBeforeExc, toolAfterExc, assistantMsg, chatOpt)
+		if len(results) > 0 {
+			sess.Messages = append(sess.Messages, results...)
+			if sessionErr := s.sessionSvc.Save(ctx, sess); sessionErr != nil {
+				return sessionErr
+			}
+		}
+		if len(pendingResults) > 0 {
+			interruptErr := session.NewPendingConfirmationError(sess.ID, assistantMsg, pendingResults)
 			sess.ApplyInterrupt(interruptErr)
 			_ = s.sessionSvc.Save(ctx, sess)
 			return interruptErr
-		}
-
-		if err := s.sessionSvc.Save(ctx, sess); err != nil {
-			return err
 		}
 	}
 
 	return fmt.Errorf("agent reached max iterations (%d) without resolving", *chatOpt.MaxIterations)
 }
 
-// handleStreamEvent 监听事件总线投递的流消息事件，并根据 SessionID 分发给对应活跃的通道读取器
-func (s *agentService) handleStreamEvent(ctx context.Context, ev event.Event) error {
-	streamEv, ok := ev.Payload().(*session.SessionStreamEvent)
-	if !ok {
-		return nil
-	}
+func (s *agentService) toolExc(ctx context.Context,
+	toolBeforeFunc toolBeforeFunc,
+	toolAfterFunc toolAfterFunc,
+	assistantMsg *message.Message,
+	chatOpt *chat.Option) ([]message.Message, []message.ToolCall) {
 
-	s.mu.RLock()
-	reader, exists := s.readers[streamEv.SessionID()]
-	s.mu.RUnlock()
+	// 工具调用
+	toolResults := utils.ParallelMap(ctx, assistantMsg.ToolCalls, func(taskCtx context.Context, tc message.ToolCall) (message.Message, error) {
+		toolBeforeFunc(tc)
+		toolMsg, toolErr := ExecuteToolCall(taskCtx, tc, chatOpt.Tools[tc.Function.Name])
+		toolAfterFunc(tc, toolMsg, toolErr)
+		return toolMsg, toolErr
+	}, utils.WithFailFast(false))
 
-	if !exists {
-		return nil
-	}
-
-	// 如果收到结束事件，则在该 Session 的分发链路尾端注销 readers 映射，并安全关闭 reader.ch
-	if streamEv.IsLast() {
-		s.mu.Lock()
-		delete(s.readers, streamEv.SessionID())
-		s.mu.Unlock()
-
-		if streamEv.Error() != nil {
-			reader.sendErr(streamEv.Error())
+	// 遍历工具执行结果，分三类处理：成功追加消息、待确认收集、其他失败追加错误消息
+	var toolConfirmationRequiredError *ToolConfirmationRequiredError
+	var pendingConfirms []message.ToolCall
+	var messages []message.Message
+	for _, res := range toolResults {
+		if res.Error == nil {
+			messages = append(messages, res.O)
+		} else if errors.As(res.Error, &toolConfirmationRequiredError) {
+			pendingConfirms = append(pendingConfirms, res.I)
+		} else {
+			messages = append(messages, message.NewToolMessage(res.I.ID, res.Error.Error()))
 		}
-		close(reader.ch)
-		return nil
 	}
 
-	_ = reader.Send(streamEv.Message())
-	return nil
+	return messages, pendingConfirms
 }
 
-// publishStreamMessage 向事件总线发布一条 SessionStreamEvent 领域事件
-func (s *agentService) publishStreamMessage(ctx context.Context, sess *session.Session, msg *message.StreamMessage) error {
-	if s.publisher == nil {
-		return nil
+func (s *agentService) stream(ctx context.Context, messages []message.Message, opts []chat.OptionFunc, callback func(*message.StreamMessage)) (*message.Message, error) {
+	stream, err := s.chatModel.Stream(ctx, messages, opts...)
+	if err != nil {
+		return nil, err
 	}
-	ev := session.NewSessionStreamEvent(
-		uuid.New().String(),
-		sess.ID,
-		sess.UserID,
-		msg,
-	)
-	return s.publisher.Publish(ctx, ev)
-}
+	defer func() {
+		_ = stream.Close()
+	}()
 
-// publishEndEvent 向事件总线发布一条代表流结束的 SessionStreamEvent 领域事件
-func (s *agentService) publishEndEvent(ctx context.Context, sess *session.Session, err error) error {
-	if s.publisher == nil {
-		return nil
+	assistantMsg, err := message.ReadAndAssembleMessage(stream, callback)
+	if err != nil {
+		return nil, err
 	}
-	ev := session.NewSessionStreamEndEvent(
-		uuid.New().String(),
-		sess.ID,
-		sess.UserID,
-		err,
-	)
-	return s.publisher.Publish(ctx, ev)
+
+	return assistantMsg, nil
 }

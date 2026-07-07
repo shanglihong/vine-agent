@@ -564,9 +564,120 @@ body {
   padding: 10px 14px;
   border-radius: var(--radius-md);
   border: 1px solid var(--bubble-reasoning-border);
-  white-space: pre-wrap;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
+
+.reasoning-text {
+  white-space: pre-wrap;
+}
+
+/* 工具步骤 badge（折叠栏标题内） */
+.tool-steps-badge {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ai-accent);
+  background: color-mix(in srgb, var(--ai-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ai-accent) 25%, transparent);
+  border-radius: 99px;
+  padding: 2px 8px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* Tool steps list — direct children of .reasoning-content */
+
+/* 单张工具步骤卡片 */
+.tool-step-card {
+  background: color-mix(in srgb, var(--bg-primary) 60%, transparent);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-size: 12px;
+}
+
+/* 卡片头部：图标 + 名称 + 状态 */
+.tool-step-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  background: color-mix(in srgb, var(--border-color) 40%, transparent);
+  border-bottom: 1px solid var(--border-color);
+}
+
+
+
+.tool-step-name {
+  font-weight: 600;
+  color: var(--text-main);
+  flex: 1;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+}
+
+/* 状态徽标 */
+.tool-step-status {
+  font-size: 11px;
+  border-radius: 99px;
+  padding: 2px 7px;
+  font-weight: 500;
+}
+.tool-step-status.success {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+.tool-step-status.error {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+.tool-step-status.pending {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+/* 入参/返回值 分区 */
+.tool-step-section {
+  padding: 6px 10px;
+  border-top: 1px solid var(--border-color);
+}
+.tool-step-section + .tool-step-section {
+  border-top: 1px solid var(--border-color);
+}
+.tool-step-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  opacity: 0.7;
+}
+.tool-step-result .tool-step-section-label {
+  color: #22c55e;
+}
+.tool-step-error .tool-step-section-label {
+  color: #ef4444;
+}
+
+/* 代码块 */
+.tool-step-code {
+  margin: 0;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11.5px;
+  color: var(--text-main);
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
 
 /* 工具流指示器 */
 .tool-call-indicator {

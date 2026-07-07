@@ -78,7 +78,7 @@ func main() {
 	userDomainSvc := user.NewUserService(userStore)
 
 	// 5. 初始化应用层服务
-	agentSvc := agent.NewService(chatModel, sessionSvc, eventBus, eventBus)
+	agentSvc := agent.NewService(chatModel, sessionSvc)
 	interactionSvc := agent.NewInteractionService(agentSvc, sessionSvc)
 	evolutionAppSvc := memory_app.NewEvolutionAppService(sessionSvc, profileRepo, evolutionSvc)
 	userAppSvc := user_app.NewUserAppService(userDomainSvc)

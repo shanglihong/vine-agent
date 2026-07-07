@@ -6,12 +6,18 @@ marked.setOptions({
   breaks: true,
 });
 
+// 统一时间线条目（按到达顺序记录推理文本和工具调用）
+type TimelineItem =
+  | { kind: 'reasoning'; text: string }
+  | { kind: 'tool_call'; toolCallId?: string; toolName?: string; toolArgs?: string; output?: string; error?: string; };
+
 // 定义数据契约
 interface Message {
   role: 'user' | 'assistant' | 'tool' | 'system';
   content: string;
-  reasoning_content?: string;
+  reasoning_content?: string;   // 保留：用于历史消息回显（后端原始字段）
   tool_calls?: any[];
+  timeline?: TimelineItem[];    // 流式时间线（前端运行时专用）
 }
 
 interface Session {
@@ -180,6 +186,85 @@ export default function App() {
     }
   };
 
+  // 2a. 从服务器加载消息，并将 assistant → tool → assistant 链合并为单条消息
+  //     使历史消息结构与流式时的单气泡完全一致
+  const rebuildAndSetMessages = async (id: string) => {
+    try {
+      const res = await fetch(`/api/sessions/${id}/messages`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const raw: any[] = data.messages || [];
+
+      const merged: Message[] = [];
+      let i = 0;
+
+      while (i < raw.length) {
+        const msg = raw[i];
+
+        // ── 遇到带 tool_calls 的 assistant 消息 → 开始合并链 ──
+        if (msg.role === 'assistant' && msg.tool_calls?.length > 0) {
+          const timeline: TimelineItem[] = [];
+          let finalContent = '';
+
+          // 可能有多轮 tool-call，循环消费直到遇到无 tool_calls 的 assistant
+          while (i < raw.length) {
+            const cur = raw[i];
+
+            if (cur.role === 'assistant' && cur.tool_calls?.length > 0) {
+              // 1. 推理文本
+              if (cur.reasoning_content) {
+                timeline.push({ kind: 'reasoning', text: cur.reasoning_content });
+              }
+              // 2. 收集本轮 tool_call 条目（暂无 output）
+              const pending: TimelineItem[] = cur.tool_calls.map((tc: any) => ({
+                kind: 'tool_call' as const,
+                toolCallId: tc.id,
+                toolName: tc.function?.name,
+                toolArgs: tc.function?.arguments,
+              }));
+              i++;
+
+              // 3. 紧跟的 tool 消息 → 填充 output
+              while (i < raw.length && raw[i].role === 'tool') {
+                const toolMsg = raw[i];
+                const item = pending.find((p) => (p as any).toolCallId === toolMsg.tool_call_id);
+                if (item) (item as any).output = toolMsg.content;
+                i++;
+              }
+              timeline.push(...pending);
+
+            } else if (cur.role === 'assistant') {
+              // 最终 assistant 回答（无 tool_calls）
+              if (cur.reasoning_content) {
+                timeline.push({ kind: 'reasoning', text: cur.reasoning_content });
+              }
+              finalContent = cur.content;
+              i++;
+              break;
+            } else {
+              break; // 非 assistant 消息，链结束
+            }
+          }
+
+          merged.push({ role: 'assistant', content: finalContent, timeline });
+
+        } else if (msg.role === 'tool') {
+          // 孤立的 tool 消息（不应出现，跳过）
+          i++;
+        } else {
+          merged.push(msg as Message);
+          i++;
+        }
+      }
+
+      setMessages(merged);
+      return data;
+    } catch (err) {
+      console.error('加载消息失败:', err);
+    }
+  };
+
+
   // 2. 加载指定会话的消息
   const selectSession = async (id: string) => {
     if (isStreaming) return;
@@ -187,34 +272,25 @@ export default function App() {
     setPendingInterrupt(null);
     setExpandedReasoning({}); // 重置折叠状态
     try {
-      const res = await fetch(`/api/sessions/${id}/messages`);
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(data.messages || []);
-        if (data.status === 'pending_confirmation') {
-          // 如果会话在后端是挂起状态，通过解析最后一条消息提取待确认项以在前端渲染
-          const lastMsg = data.messages?.[data.messages.length - 1];
-          if (lastMsg && lastMsg.tool_calls) {
-            setPendingInterrupt({
-              session_id: id,
-              pending_tools: lastMsg.tool_calls.map((tc: any) => ({
-                id: tc.id,
-                function: {
-                  name: tc.function.name,
-                  arguments: tc.function.arguments,
-                },
-              })),
-            });
-          }
+      const data = await rebuildAndSetMessages(id);
+      if (data?.status === 'pending_confirmation') {
+        const lastMsg = data.messages?.[data.messages.length - 1];
+        if (lastMsg && lastMsg.tool_calls) {
+          setPendingInterrupt({
+            session_id: id,
+            pending_tools: lastMsg.tool_calls.map((tc: any) => ({
+              id: tc.id,
+              function: { name: tc.function.name, arguments: tc.function.arguments },
+            })),
+          });
         }
-      } else {
-        alert('读取历史消息失败，状态码: ' + res.status);
       }
     } catch (err: any) {
       alert('读取历史消息失败，网络或后端连接异常: ' + err.message);
       console.error('切换会话失败:', err);
     }
   };
+
 
   // 3. 创建全新会话
   const createNewSession = async () => {
@@ -426,7 +502,14 @@ export default function App() {
           // 降级使用 raw data
         }
         updateLastAiMessage((msg) => {
-          msg.reasoning_content = (msg.reasoning_content || '') + rText;
+          const tl = [...(msg.timeline || [])];
+          const last = tl[tl.length - 1];
+          if (last && last.kind === 'reasoning') {
+            tl[tl.length - 1] = { kind: 'reasoning', text: last.text + rText };
+          } else {
+            tl.push({ kind: 'reasoning', text: rText });
+          }
+          msg.timeline = tl;
         });
         break;
 
@@ -434,7 +517,13 @@ export default function App() {
         try {
           const toolCall = JSON.parse(data);
           updateLastAiMessage((msg) => {
-            msg.reasoning_content = (msg.reasoning_content || '') + `\n[系统] 正在调用工具: ${toolCall.function.name}...`;
+            const item: TimelineItem = {
+              kind: 'tool_call',
+              toolCallId: toolCall.id,
+              toolName: toolCall.function?.name,
+              toolArgs: toolCall.function?.arguments,
+            };
+            msg.timeline = [...(msg.timeline || []), item];
           });
         } catch { }
         break;
@@ -443,7 +532,18 @@ export default function App() {
         try {
           const toolResult = JSON.parse(data);
           updateLastAiMessage((msg) => {
-            msg.reasoning_content = (msg.reasoning_content || '') + `\n[工具回显] 返回值: ${toolResult.content}`;
+            const tl = [...(msg.timeline || [])];
+            // 找到最近的对应 tool_call_id 条目，填充 output/error
+            const callIdx = tl.findLastIndex(
+              (item) => item.kind === 'tool_call' && item.toolCallId === toolResult.tool_call_id
+            );
+            if (callIdx !== -1) {
+              tl[callIdx] = { ...tl[callIdx], output: toolResult.output, error: toolResult.error } as TimelineItem;
+            } else {
+              // 找不到对应 call，追加一个无名工具结果
+              tl.push({ kind: 'tool_call', toolCallId: toolResult.tool_call_id, output: toolResult.output, error: toolResult.error });
+            }
+            msg.timeline = tl;
           });
         } catch { }
         break;
@@ -460,6 +560,7 @@ export default function App() {
       case 'done':
         setIsStreaming(false);
         loadSessions(); // 刷新会话的更新时间
+        // 流式已在内存中构建了与历史加载相同的 timeline 结构，无需再次请求
         // 对话结束后，触发一次偏好事实进化以保画像同步
         setTimeout(() => {
           evolveProfile();
@@ -723,8 +824,8 @@ export default function App() {
                   </div>
 
                   <div className="chat-bubble">
-                    {/* 推理思考展示块 (DeepSeek Accordion 风格) */}
-                    {!isUser && m.reasoning_content && (
+                    {/* Reasoning / Tool Steps Accordion */}
+                    {!isUser && ((m.timeline && m.timeline.length > 0) || m.reasoning_content) && (
                       <div className="reasoning-accordion">
                         <div
                           className={`reasoning-toggle ${isReasoningExpanded ? 'open' : ''}`}
@@ -739,11 +840,54 @@ export default function App() {
                           <svg className="reasoning-toggle-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="9 18 15 12 9 6"></polyline>
                           </svg>
-                          <span>思考过程</span>
+                          <span>Thinking</span>
+                          {m.timeline && m.timeline.filter(i => i.kind === 'tool_call').length > 0 && (
+                            <span className="tool-steps-badge">
+                              {m.timeline.filter(i => i.kind === 'tool_call').length} tool call(s)
+                            </span>
+                          )}
                         </div>
                         {isReasoningExpanded && (
                           <div className="reasoning-content">
-                            {m.reasoning_content}
+                            {/* 按 timeline 顺序渲染：推理文本 + 工具步骤卡片 */}
+                            {(m.timeline && m.timeline.length > 0) ? (
+                              m.timeline.map((item, tIdx) => {
+                                if (item.kind === 'reasoning') {
+                                  return (
+                                    <div key={tIdx} className="reasoning-text">{item.text}</div>
+                                  );
+                                }
+                                // tool_call item
+                                const hasResult = item.output !== undefined || item.error !== undefined;
+                                let parsedArgs: Record<string, unknown> | null = null;
+                                try { if (item.toolArgs) parsedArgs = JSON.parse(item.toolArgs); } catch { }
+                                const statusClass = hasResult ? (item.error ? 'error' : 'success') : 'pending';
+                                const statusText = hasResult ? (item.error ? 'Failed' : 'Done') : 'Running';
+                                return (
+                                  <div key={tIdx} className="tool-step-card">
+                                    <div className="tool-step-header">
+                                      <span className="tool-step-name">{item.toolName || 'tool'}</span>
+                                      <span className={`tool-step-status ${statusClass}`}>{statusText}</span>
+                                    </div>
+                                    {item.toolArgs && (
+                                      <div className="tool-step-section">
+                                        <div className="tool-step-section-label">Input</div>
+                                        <pre className="tool-step-code">{parsedArgs ? JSON.stringify(parsedArgs, null, 2) : item.toolArgs}</pre>
+                                      </div>
+                                    )}
+                                    {hasResult && (
+                                      <div className={`tool-step-section ${item.error ? 'tool-step-error' : 'tool-step-result'}`}>
+                                        <div className="tool-step-section-label">{item.error ? 'Error' : 'Output'}</div>
+                                        <pre className="tool-step-code">{item.error ? String(item.error) : (item.output || '(empty)')}</pre>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              /* 兼容历史消息：仅有 reasoning_content */
+                              m.reasoning_content && <div className="reasoning-text">{m.reasoning_content}</div>
+                            )}
                           </div>
                         )}
                       </div>

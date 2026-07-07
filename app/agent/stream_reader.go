@@ -45,6 +45,11 @@ func (r *agentEventReader) Close() error {
 	return nil
 }
 
+func (r *agentEventReader) closeChannel() {
+	close(r.ch)
+	close(r.errCh)
+}
+
 func (r *agentEventReader) Send(ev *message.StreamMessage) (ok bool) {
 	defer func() {
 		if recover() != nil {
