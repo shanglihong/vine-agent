@@ -13,12 +13,14 @@ import (
 
 	"vine-agent/app/agent"
 	memory_app "vine-agent/app/memory"
+	user_app "vine-agent/app/user"
 	"vine-agent/config"
 	"vine-agent/domain/chat"
 	"vine-agent/domain/chat/chat_model"
 	"vine-agent/domain/memory/profile"
 	"vine-agent/domain/memory/session"
 	"vine-agent/domain/message"
+	"vine-agent/domain/user"
 	"vine-agent/infra/api"
 	"vine-agent/infra/client/deepseek"
 	infraevent "vine-agent/infra/event"
@@ -38,6 +40,10 @@ func main() {
 		logger.Fatalf("初始化 SQLite 会话仓储失败: %v", err)
 	}
 	profileRepo := file.NewFileProfileRepository(cfg.Storage.ProfileDir)
+	userStore, err := sqlite.NewUserStore(cfg.Storage.SQLiteDBPath)
+	if err != nil {
+		logger.Fatalf("初始化 SQLite 用户仓储失败: %v", err)
+	}
 
 	// 2. 初始化核心事件总线
 	eventBus := infraevent.NewInMemoryEventBus(100, 2, nil)
@@ -69,14 +75,16 @@ func main() {
 	// 4. 初始化领域服务
 	sessionSvc := session.NewSessionService(sessionStore)
 	evolutionSvc := profile.NewEvolutionService(llmExtractor)
+	userDomainSvc := user.NewUserService(userStore)
 
 	// 5. 初始化应用层服务
 	agentSvc := agent.NewService(chatModel, sessionSvc, eventBus, eventBus)
 	interactionSvc := agent.NewInteractionService(agentSvc, sessionSvc)
 	evolutionAppSvc := memory_app.NewEvolutionAppService(sessionSvc, profileRepo, evolutionSvc)
+	userAppSvc := user_app.NewUserAppService(userDomainSvc)
 
 	// 6. 构造 API 控制器与注册路由
-	handler := api.NewAPIHandler(agentSvc, interactionSvc, sessionSvc, profileRepo, evolutionAppSvc, logger)
+	handler := api.NewAPIHandler(agentSvc, interactionSvc, sessionSvc, profileRepo, evolutionAppSvc, userAppSvc, logger)
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 

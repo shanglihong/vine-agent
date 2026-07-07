@@ -1,0 +1,312 @@
+package api
+
+import (
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"time"
+
+	"vine-agent/app/agent"
+	"vine-agent/domain/chat"
+	"vine-agent/domain/memory/session"
+	"vine-agent/domain/message"
+	"vine-agent/domain/tool"
+)
+
+// 1. GET /api/sessions?user_id=xxx
+func (h *APIHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
+	if h.setCORS(w, r) {
+		return
+	}
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		h.respondError(w, http.StatusBadRequest, "missing user_id query parameter")
+		return
+	}
+
+	sessions, err := h.sessionSvc.List(r.Context(), userID)
+	if err != nil {
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// 转换成轻量级返回结构
+	type sessResp struct {
+		ID        string    `json:"id"`
+		UserID    string    `json:"user_id"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Status    string    `json:"status,omitempty"`
+	}
+	list := make([]sessResp, 0, len(sessions))
+	for _, s := range sessions {
+		status := ""
+		if s.Metadata != nil {
+			status = s.Metadata["status"]
+		}
+		list = append(list, sessResp{
+			ID:        s.ID,
+			UserID:    s.UserID,
+			UpdatedAt: s.UpdatedAt,
+			Status:    status,
+		})
+	}
+
+	h.respondJSON(w, http.StatusOK, list)
+}
+
+// 2. POST /api/sessions
+func (h *APIHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
+	if h.setCORS(w, r) {
+		return
+	}
+	var req struct {
+		SessionID string `json:"session_id"`
+		UserID    string `json:"user_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.SessionID == "" || req.UserID == "" {
+		h.respondError(w, http.StatusBadRequest, "session_id and user_id are required")
+		return
+	}
+
+	sess := session.NewSession(req.SessionID, req.UserID, nil)
+	if err := h.sessionSvc.Save(r.Context(), sess); err != nil {
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]string{"session_id": sess.ID, "status": "created"})
+}
+
+// 3. GET /api/sessions/{id}/messages
+func (h *APIHandler) GetSessionMessages(w http.ResponseWriter, r *http.Request) {
+	if h.setCORS(w, r) {
+		return
+	}
+	sessionID := r.PathValue("id")
+	if sessionID == "" {
+		h.respondError(w, http.StatusBadRequest, "missing session_id in path")
+		return
+	}
+
+	sess, err := h.sessionSvc.Get(r.Context(), sessionID)
+	if err != nil {
+		if errors.Is(err, session.ErrSessionNotFound) {
+			h.respondError(w, http.StatusNotFound, "session not found")
+			return
+		}
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]any{
+		"session_id": sess.ID,
+		"user_id":    sess.UserID,
+		"messages":   sess.Messages,
+		"status":     sess.Metadata["status"],
+	})
+}
+
+// 4. POST /api/sessions/{id}/chat
+func (h *APIHandler) Chat(w http.ResponseWriter, r *http.Request) {
+	if h.setCORS(w, r) {
+		return
+	}
+	sessionID := r.PathValue("id")
+	var req struct {
+		UserID  string `json:"user_id"`
+		Message string `json:"message"`
+		Model   string `json:"model"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Message == "" {
+		h.respondError(w, http.StatusBadRequest, "message is required")
+		return
+	}
+	if req.UserID == "" {
+		// 从 sessionId 换取 userId
+		sess, err := h.sessionSvc.Get(r.Context(), sessionID)
+		if err == nil && sess != nil {
+			req.UserID = sess.UserID
+		}
+	}
+	if req.UserID == "" {
+		h.respondError(w, http.StatusBadRequest, "user_id is required and could not be inferred from session")
+		return
+	}
+
+	// 构造 context，注入 UserID 和 SessionID
+	ctx := agent.WithUserID(r.Context(), req.UserID)
+	ctx = agent.WithSessionID(ctx, sessionID)
+
+	// 调用智能体流式生成
+	userMsg := message.Message{
+		Role:    message.RoleUser,
+		Content: req.Message,
+	}
+
+	// 构建大模型工具参数
+	toolsList := make([]tool.Tool, 0, len(h.tools))
+	for _, t := range h.tools {
+		toolsList = append(toolsList, t)
+	}
+
+	reader, err := h.agentSvc.Stream(ctx, []message.Message{userMsg},
+		chat.WithTools(toolsList),
+		chat.WithModel(req.Model),
+	)
+	if err != nil {
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer func() {
+		_ = reader.Close()
+	}()
+
+	// 开启 SSE 响应
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		h.logger.Println("SSE flusher conversion failed")
+		return
+	}
+
+	for {
+		msg, err := reader.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				sendSSEEvent(w, "done", "")
+				flusher.Flush()
+				break
+			}
+			var interruptErr *session.InterruptError
+			if errors.As(err, &interruptErr) {
+				sendSSEEvent(w, "interrupt", map[string]any{
+					"session_id":    interruptErr.SessionID,
+					"pending_tools": interruptErr.ToolCalls,
+				})
+				flusher.Flush()
+				break
+			}
+			sendSSEEvent(w, "error", map[string]string{"message": err.Error()})
+			flusher.Flush()
+			break
+		}
+
+		if msg != nil {
+			switch msg.Type {
+			case message.StreamMessageTextDelta:
+				sendSSEEvent(w, "text_delta", msg.Content)
+			case message.StreamMessageToolCall:
+				sendSSEEvent(w, "tool_call", msg.ToolCall)
+			case message.StreamMessageToolResult:
+				sendSSEEvent(w, "tool_result", msg.ToolResult)
+			}
+			flusher.Flush()
+		}
+	}
+}
+
+// 5. POST /api/sessions/{id}/confirm
+func (h *APIHandler) Confirm(w http.ResponseWriter, r *http.Request) {
+	if h.setCORS(w, r) {
+		return
+	}
+	sessionID := r.PathValue("id")
+	var req struct {
+		UserID                string   `json:"user_id"`
+		ConfirmedToolCallIDs []string `json:"confirmed_tool_call_ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.UserID == "" {
+		// 从 sessionId 换取 userId
+		sess, err := h.sessionSvc.Get(r.Context(), sessionID)
+		if err == nil && sess != nil {
+			req.UserID = sess.UserID
+		}
+	}
+	if req.UserID == "" {
+		h.respondError(w, http.StatusBadRequest, "user_id is required and could not be inferred from session")
+		return
+	}
+
+	ctx := agent.WithUserID(r.Context(), req.UserID)
+	ctx = agent.WithSessionID(ctx, sessionID)
+
+	// 构建大模型工具参数
+	toolsList := make([]tool.Tool, 0, len(h.tools))
+	for _, t := range h.tools {
+		toolsList = append(toolsList, t)
+	}
+
+	// 恢复挂起的会话流
+	reader, err := h.interactionSvc.ResumeStream(ctx, req.ConfirmedToolCallIDs,
+		chat.WithTools(toolsList),
+	)
+	if err != nil {
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer func() {
+		_ = reader.Close()
+	}()
+
+	// 开启 SSE 响应
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		h.logger.Println("SSE flusher conversion failed")
+		return
+	}
+
+	for {
+		msg, err := reader.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				sendSSEEvent(w, "done", "")
+				flusher.Flush()
+				break
+			}
+			var interruptErr *session.InterruptError
+			if errors.As(err, &interruptErr) {
+				sendSSEEvent(w, "interrupt", map[string]any{
+					"session_id":    interruptErr.SessionID,
+					"pending_tools": interruptErr.ToolCalls,
+				})
+				flusher.Flush()
+				break
+			}
+			sendSSEEvent(w, "error", map[string]string{"message": err.Error()})
+			flusher.Flush()
+			break
+		}
+
+		if msg != nil {
+			switch msg.Type {
+			case message.StreamMessageTextDelta:
+				sendSSEEvent(w, "text_delta", msg.Content)
+			case message.StreamMessageToolCall:
+				sendSSEEvent(w, "tool_call", msg.ToolCall)
+			case message.StreamMessageToolResult:
+				sendSSEEvent(w, "tool_result", msg.ToolResult)
+			}
+			flusher.Flush()
+		}
+	}
+}

@@ -39,12 +39,15 @@ export default function App() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [currentSessionID, setCurrentSessionID] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [userInfo, setUserInfo] = useState<{ id: string; username: string; email: string } | null>(null);
+  const [userID, setUserID] = useState<string>('');
   const [userProfile, setUserProfile] = useState<Profile>({
-    user_id: 'user_test_999',
+    user_id: '',
     preferences: [],
     facts: [],
   });
   const [inputValue, setInputValue] = useState<string>('');
+  const [selectedModel, setSelectedModel] = useState<string>('deepseek-v4-flash');
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [isEvolving, setIsEvolving] = useState<boolean>(false);
   const [pendingInterrupt, setPendingInterrupt] = useState<{
@@ -58,8 +61,7 @@ export default function App() {
   // 状态：深色/明亮模式
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
 
-  // 本地默认用户 ID
-  const userID = 'user_test_999';
+
 
   // 强视觉会话状态指示 Badge 标签 (带 LED 脉冲呼吸指示点)
   const renderStatusBadge = () => {
@@ -93,8 +95,29 @@ export default function App() {
 
   // 初始化加载及主题检测
   useEffect(() => {
-    loadSessions();
-    loadProfile();
+    const fetchUser = async (retries = 5, delay = 1500) => {
+      try {
+        const res = await fetch('/api/user');
+        if (res.ok) {
+          const u = await res.json();
+          if (u && u.id) {
+            setUserInfo(u);
+            setUserID(u.id);
+            return;
+          }
+        }
+        throw new Error(`status: ${res.status}`);
+      } catch (err) {
+        if (retries > 0) {
+          console.warn(`加载用户信息失败，将在 ${delay}ms 后重试... 剩余重试次数: ${retries}`);
+          setTimeout(() => fetchUser(retries - 1, delay), delay);
+        } else {
+          console.error('加载用户信息失败，已达到最大重试次数:', err);
+        }
+      }
+    };
+
+    fetchUser();
 
     const savedTheme = localStorage.getItem('theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -106,6 +129,14 @@ export default function App() {
       document.documentElement.classList.remove('dark');
     }
   }, []);
+
+  // 当 userID 就绪后，再加载会话历史和画像
+  useEffect(() => {
+    if (userID) {
+      loadSessions();
+      loadProfile();
+    }
+  }, [userID]);
 
   // 消息更新后滚动到底部
   useEffect(() => {
@@ -127,6 +158,7 @@ export default function App() {
 
   // 1. 获取会话历史列表
   const loadSessions = async () => {
+    if (!userID) return;
     try {
       const res = await fetch(`/api/sessions?user_id=${userID}`);
       if (res.ok) {
@@ -205,6 +237,7 @@ export default function App() {
 
   // 4. 获取用户长期记忆画像
   const loadProfile = async () => {
+    if (!userID) return;
     try {
       const res = await fetch(`/api/users/${userID}/profile`);
       if (res.ok) {
@@ -266,7 +299,7 @@ export default function App() {
       const res = await fetch(`/api/sessions/${currentSessionID}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userID, message: userText }),
+        body: JSON.stringify({ user_id: userID, message: userText, model: selectedModel }),
       });
 
       if (!res.ok) {
@@ -382,7 +415,7 @@ export default function App() {
           updateLastAiMessage((msg) => {
             msg.reasoning_content = (msg.reasoning_content || '') + `\n[系统] 正在调用工具: ${toolCall.function.name}...`;
           });
-        } catch {}
+        } catch { }
         break;
 
       case 'tool_result':
@@ -391,7 +424,7 @@ export default function App() {
           updateLastAiMessage((msg) => {
             msg.reasoning_content = (msg.reasoning_content || '') + `\n[工具回显] 返回值: ${toolResult.content}`;
           });
-        } catch {}
+        } catch { }
         break;
 
       case 'interrupt':
@@ -400,7 +433,7 @@ export default function App() {
           setPendingInterrupt(interruptData);
           setIsStreaming(false);
           loadSessions(); // 刷新 sidebar 中会话的 pending 状态
-        } catch {}
+        } catch { }
         break;
 
       case 'done':
@@ -418,7 +451,7 @@ export default function App() {
           updateLastAiMessage((msg) => {
             msg.content += `\n【系统错误】${errObj.message}`;
           });
-        } catch {}
+        } catch { }
         setIsStreaming(false);
         break;
 
@@ -474,7 +507,7 @@ export default function App() {
             <h1>Vine-Agent</h1>
           </div>
         </div>
-        
+
         {/* 新对话按钮 */}
         <button className="new-chat-btn" onClick={createNewSession}>
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -508,14 +541,18 @@ export default function App() {
         </div>
 
         <div className="user-footer">
-          <div className="user-avatar">U</div>
+          <div className="user-avatar">
+            {userInfo?.username ? userInfo.username[0].toUpperCase() : 'U'}
+          </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: '12px' }}>{userID}</div>
+            <div style={{ fontWeight: 600, fontSize: '12px' }}>
+              {userInfo?.username || userID || 'Loading...'}
+            </div>
             <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Status: Active</div>
           </div>
           {/* 夜间模式切换按钮 */}
-          <button 
-            onClick={toggleTheme} 
+          <button
+            onClick={toggleTheme}
             className="theme-toggle-btn"
             title={isDarkMode ? '切换至明亮模式' : '切换至暗色模式'}
           >
@@ -582,7 +619,7 @@ export default function App() {
                 </svg>
               </div>
               <h3>How can I help you today?</h3>
-              
+
               {/* ChatGPT 风格快捷动作网格 */}
               <div className="quick-action-cards">
                 <div className="action-card" onClick={() => handleQuickAction('分析我近期的偏好有哪些新的进化？')}>
@@ -621,9 +658,9 @@ export default function App() {
               return (
                 <div key={idx} className={`message-wrapper ${isUser ? 'user' : 'assistant'}`}>
                   {/* 对话头像：USER 和 AI 均在左侧完美对齐呈现 */}
-                  <div className="message-avatar" style={{ 
-                    background: isUser ? (isDarkMode ? '#334155' : '#e2e8f0') : 'var(--ai-accent)', 
-                    color: isUser ? (isDarkMode ? '#cbd5e1' : '#475569') : '#ffffff', 
+                  <div className="message-avatar" style={{
+                    background: isUser ? (isDarkMode ? '#334155' : '#e2e8f0') : 'var(--ai-accent)',
+                    color: isUser ? (isDarkMode ? '#cbd5e1' : '#475569') : '#ffffff',
                     borderColor: isUser ? 'var(--border-color)' : 'transparent',
                     fontSize: '12px',
                     fontWeight: 600
@@ -647,7 +684,7 @@ export default function App() {
                     {/* 推理思考展示块 (DeepSeek Accordion 风格) */}
                     {!isUser && m.reasoning_content && (
                       <div className="reasoning-accordion">
-                        <div 
+                        <div
                           className={`reasoning-toggle ${isReasoningExpanded ? 'open' : ''}`}
                           onClick={() => {
                             setExpandedReasoning(prev => ({
@@ -752,7 +789,24 @@ export default function App() {
         <form className="input-area" onSubmit={handleSendMessage}>
           <div className="input-container">
             <div className="model-selector-pill">
-              <span>DeepSeek-R1</span>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  fontSize: 'inherit',
+                  fontWeight: 'inherit',
+                  color: 'inherit',
+                  cursor: 'pointer',
+                  padding: 0,
+                  margin: 0
+                }}
+              >
+                <option value="deepseek-v4-flash" style={{ color: 'var(--text-main)', background: 'var(--bg-card)' }}>deepseek-v4-flash</option>
+                <option value="deepseek-v4-pro" style={{ color: 'var(--text-main)', background: 'var(--bg-card)' }}>deepseek-v4-pro</option>
+              </select>
             </div>
             <input
               type="text"
