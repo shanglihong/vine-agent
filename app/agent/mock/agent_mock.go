@@ -7,6 +7,7 @@ package mock
 import (
 	context "context"
 	reflect "reflect"
+	agent "vine-agent/app/agent"
 	chat "vine-agent/domain/chat"
 	message "vine-agent/domain/message"
 
@@ -74,4 +75,62 @@ func (mr *MockServiceMockRecorder) Stream(ctx, messages interface{}, opts ...int
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, messages}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stream", reflect.TypeOf((*MockService)(nil).Stream), varargs...)
+}
+
+// MockInteractionService is a mock of InteractionService interface.
+type MockInteractionService struct {
+	ctrl     *gomock.Controller
+	recorder *MockInteractionServiceMockRecorder
+}
+
+// MockInteractionServiceMockRecorder is the mock recorder for MockInteractionService.
+type MockInteractionServiceMockRecorder struct {
+	mock *MockInteractionService
+}
+
+// NewMockInteractionService creates a new mock instance.
+func NewMockInteractionService(ctrl *gomock.Controller) *MockInteractionService {
+	mock := &MockInteractionService{ctrl: ctrl}
+	mock.recorder = &MockInteractionServiceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockInteractionService) EXPECT() *MockInteractionServiceMockRecorder {
+	return m.recorder
+}
+
+// ReadStream mocks base method.
+func (m *MockInteractionService) ReadStream(ctx context.Context, reader message.StreamMessageReader) (*agent.StreamResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadStream", ctx, reader)
+	ret0, _ := ret[0].(*agent.StreamResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadStream indicates an expected call of ReadStream.
+func (mr *MockInteractionServiceMockRecorder) ReadStream(ctx, reader interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadStream", reflect.TypeOf((*MockInteractionService)(nil).ReadStream), ctx, reader)
+}
+
+// ResumeStream mocks base method.
+func (m *MockInteractionService) ResumeStream(ctx context.Context, confirmedToolCallIDs []string, opts ...chat.OptionFunc) (message.StreamMessageReader, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, confirmedToolCallIDs}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ResumeStream", varargs...)
+	ret0, _ := ret[0].(message.StreamMessageReader)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResumeStream indicates an expected call of ResumeStream.
+func (mr *MockInteractionServiceMockRecorder) ResumeStream(ctx, confirmedToolCallIDs interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, confirmedToolCallIDs}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResumeStream", reflect.TypeOf((*MockInteractionService)(nil).ResumeStream), varargs...)
 }
