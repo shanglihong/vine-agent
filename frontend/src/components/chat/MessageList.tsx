@@ -7,6 +7,41 @@ marked.setOptions({
   breaks: true,
 });
 
+// 专属工具图标映射
+const getToolIcon = (toolName: string) => {
+  const name = toolName.toLowerCase();
+  if (name.includes('weather')) {
+    return (
+      <svg className="tool-icon tool-icon-weather" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '13.5px', height: '13.5px', stroke: 'var(--warning-color)', flexShrink: 0 }}>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+        <circle cx="12" cy="12" r="4" />
+      </svg>
+    );
+  }
+  if (name.includes('city') || name.includes('location') || name.includes('geo')) {
+    return (
+      <svg className="tool-icon tool-icon-location" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '13.5px', height: '13.5px', stroke: 'var(--primary-color)', flexShrink: 0 }}>
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+        <circle cx="12" cy="10" r="3" />
+      </svg>
+    );
+  }
+  if (name.includes('memory') || name.includes('profile') || name.includes('fact')) {
+    return (
+      <svg className="tool-icon tool-icon-memory" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '13.5px', height: '13.5px', stroke: 'var(--success-color)', flexShrink: 0 }}>
+        <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.44 2.5 2.5 0 0 1 0-3.12 3 3 0 0 1 0-3.88 2.5 2.5 0 0 1 0-3.12A2.5 2.5 0 0 1 9.5 2zM14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.44 2.5 2.5 0 0 0 0-3.12 3 3 0 0 0 0-3.88 2.5 2.5 0 0 0 0-3.12A2.5 2.5 0 0 0 14.5 2z" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="tool-icon tool-icon-default" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '13.5px', height: '13.5px', stroke: 'var(--text-secondary)', flexShrink: 0 }}>
+      <polyline points="16 18 22 12 16 6" />
+      <polyline points="8 6 2 12 8 18" />
+      <line x1="12" y1="4" x2="12" y2="20" />
+    </svg>
+  );
+};
+
 interface MessageListProps {
   messages: Message[];
   isStreaming: boolean;
@@ -150,7 +185,7 @@ export default function MessageList({
         const isReasoningExpanded = expandedReasoning[idx] !== false;
 
         return (
-          <div key={idx} className={`message-wrapper ${isUser ? 'user' : 'assistant'}`}>
+          <div key={idx} className={`message-wrapper ${isUser ? 'user' : 'assistant'} ${isStreaming && idx === messages.length - 1 ? 'streaming' : ''}`}>
             {/* 对话头像：USER 和 AI 均在左侧完美对齐呈现 */}
             <div className="message-avatar">
               {isUser ? (
@@ -198,6 +233,13 @@ export default function MessageList({
                       <polyline points="9 18 15 12 9 6"></polyline>
                     </svg>
                     <span>Thinking</span>
+                    {isStreaming && !m.content && idx === messages.length - 1 && (
+                      <span className="thinking-spinner-container">
+                        <svg className="thinking-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round">
+                          <circle cx="12" cy="12" r="10" strokeDasharray="30 15" />
+                        </svg>
+                      </span>
+                    )}
                     {m.timeline && m.timeline.filter((i) => i.kind === 'tool_call').length > 0 && (
                       <span className="tool-steps-badge">
                         {m.timeline.filter((i) => i.kind === 'tool_call').length} tool call(s)
@@ -236,16 +278,25 @@ export default function MessageList({
                           return (
                             <div key={tIdx} className="tool-step-card">
                               <div className="tool-step-header">
-                                <span className="tool-step-name">
-                                  {item.toolName || 'tool'}
-                                </span>
+                                <div className="tool-name-container">
+                                  {getToolIcon(item.toolName || '')}
+                                  <span className="tool-step-name">
+                                    {item.toolName || 'tool'}
+                                  </span>
+                                </div>
                                 <span className={`tool-step-status ${statusClass}`}>
+                                  <span className="status-dot-indicator"></span>
                                   {statusText}
                                 </span>
                               </div>
                               {item.toolArgs && (
-                                <div className="tool-step-section">
-                                  <div className="tool-step-section-label">Input</div>
+                                <div className="tool-step-section tool-step-input">
+                                  <div className="tool-step-section-label">
+                                    <svg className="section-label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                      <polyline points="9 18 15 12 9 6" />
+                                    </svg>
+                                    Input
+                                  </div>
                                   <pre className="tool-step-code">
                                     {parsedArgs
                                       ? JSON.stringify(parsedArgs, null, 2)
@@ -260,6 +311,9 @@ export default function MessageList({
                                   }`}
                                 >
                                   <div className="tool-step-section-label">
+                                    <svg className="section-label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                      <polyline points="15 18 9 12 15 6" />
+                                    </svg>
                                     {item.error ? 'Error' : 'Output'}
                                   </div>
                                   <pre className="tool-step-code">
@@ -292,8 +346,6 @@ export default function MessageList({
                       }}
                     />
                   )
-                ) : !isUser && isStreaming && idx === messages.length - 1 ? (
-                  <span className="typing-cursor">正在思考...</span>
                 ) : (
                   ''
                 )}
