@@ -9,7 +9,7 @@ export interface TimelineItem {
 }
 
 export interface Message {
-  role: 'user' | 'assistant' | 'tool' | 'system';
+  role: 'user' | 'assistant' | 'tool' | 'system' | 'interrupted';
   content: string;
   reasoning_content?: string;
   tool_calls?: any[];

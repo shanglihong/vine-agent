@@ -142,20 +142,28 @@ func (r *deepseekStreamReaderAdapter) Close() error {
 	return r.stream.Close()
 }
 
+func (r *deepseekStreamReaderAdapter) Interrupt() error {
+	return r.Close()
+}
+
 // 转换 DTO 工具函数
 
 func toDeepSeekMessages(msgs []message.Message) []deepseek.Message {
-	res := make([]deepseek.Message, len(msgs))
-	for i, m := range msgs {
-		res[i] = deepseek.Message{
+	var res []deepseek.Message
+	for _, m := range msgs {
+		if !m.IsValidLLMRole() {
+			continue // 过滤自定义非标准角色消息（如 interrupted 消息）
+		}
+		dm := deepseek.Message{
 			Role:             string(m.Role),
 			Content:          m.Content,
 			ReasoningContent: m.ReasoningContent,
 			ToolCallID:       m.ToolCallID,
 		}
 		if len(m.ToolCalls) > 0 {
-			res[i].ToolCalls = toDeepSeekToolCalls(m.ToolCalls)
+			dm.ToolCalls = toDeepSeekToolCalls(m.ToolCalls)
 		}
+		res = append(res, dm)
 	}
 	return res
 }

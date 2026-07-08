@@ -5,10 +5,11 @@ type Role string
 
 // 定义角色枚举常量
 const (
-	RoleSystem    Role = "system"
-	RoleUser      Role = "user"
-	RoleAssistant Role = "assistant"
-	RoleTool      Role = "tool"
+	RoleSystem      Role = "system"
+	RoleUser        Role = "user"
+	RoleAssistant   Role = "assistant"
+	RoleTool        Role = "tool"
+	RoleInterrupted Role = "interrupted"
 )
 
 // Message 代表对话领域模型中的一条核心消息实体
@@ -22,9 +23,9 @@ type Message struct {
 
 // ToolCall 助理端发起的工具调用
 type ToolCall struct {
-	Index    int          `json:"index"`    // 在流式增量返回过程中，标示当前片段属于第几个工具调用的局部切片下标索引（用以定位并拼接参数）
-	ID       string       `json:"id"`       // 大模型生成的该次工具调用全局唯一标识 ID，在工具执行完毕回传结果消息时，必须携带该 ID 供模型绑定对应
-	Type     string       `json:"type"`     // 固定为 "function"
+	Index    int          `json:"index"` // 在流式增量返回过程中，标示当前片段属于第几个工具调用的局部切片下标索引（用以定位并拼接参数）
+	ID       string       `json:"id"`    // 大模型生成的该次工具调用全局唯一标识 ID，在工具执行完毕回传结果消息时，必须携带该 ID 供模型绑定对应
+	Type     string       `json:"type"`  // 固定为 "function"
 	Function FunctionCall `json:"function"`
 }
 
@@ -37,6 +38,11 @@ type FunctionCall struct {
 // IsAssistant 返回该消息是否为助理消息
 func (m *Message) IsAssistant() bool {
 	return m.Role == RoleAssistant
+}
+
+// IsValidLLMRole 校验该消息角色是否为大模型支持的标准角色 (system, user, assistant, tool)
+func (m *Message) IsValidLLMRole() bool {
+	return m.Role == RoleSystem || m.Role == RoleUser || m.Role == RoleAssistant || m.Role == RoleTool
 }
 
 // IsToolCall 返回该消息是否为助理发起的工具调用消息
@@ -87,5 +93,13 @@ func NewToolMessage(toolCallID, content string) Message {
 		Role:       RoleTool,
 		ToolCallID: toolCallID,
 		Content:    content,
+	}
+}
+
+// NewInterruptedMessage 创建一个中断标记的消息实体
+func NewInterruptedMessage() Message {
+	return Message{
+		Role:    RoleInterrupted,
+		Content: "对话已中断",
 	}
 }

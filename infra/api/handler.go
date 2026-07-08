@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sync"
 
 	"vine-agent/app/agent"
 	memory_app "vine-agent/app/memory"
@@ -25,6 +26,7 @@ type APIHandler struct {
 	userAppSvc      *user_app.UserAppService
 	logger          *log.Logger
 	tools           map[string]tool.Tool
+	activeStreams   sync.Map // 保存 session_id -> message.StreamMessageReader 的映射
 }
 
 // NewAPIHandler 构造 APIHandler
@@ -103,6 +105,7 @@ func (h *APIHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/sessions/{id}/messages", h.GetSessionMessages)
 	mux.HandleFunc("POST /api/sessions/{id}/chat", h.Chat)
 	mux.HandleFunc("POST /api/sessions/{id}/confirm", h.Confirm)
+	mux.HandleFunc("POST /api/sessions/{id}/cancel", h.Cancel)
 	mux.HandleFunc("GET /api/user", h.GetUser)
 	mux.HandleFunc("GET /api/users/{id}/profile", h.GetUserProfile)
 	mux.HandleFunc("POST /api/users/{id}/evolve", h.Evolve)

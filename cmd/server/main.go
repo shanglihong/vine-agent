@@ -237,6 +237,10 @@ func (r *mockStreamReader) Close() error {
 	return nil
 }
 
+func (r *mockStreamReader) Interrupt() error {
+	return r.Close()
+}
+
 // Mock 记忆提炼提取器 (无 API KEY 时的调试降级)
 type mockExtractor struct{}
 

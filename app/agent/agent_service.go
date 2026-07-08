@@ -83,11 +83,19 @@ func (s *agentService) Stream(ctx context.Context, messages []message.Message, o
 	}
 
 	go func() {
+		defer reader.closeChannel()
 		loopErr := s.runStreamLoop(subCtx, reader, sess, opts)
 		if loopErr != nil {
-			reader.sendErr(loopErr)
+			if reader.IsUserCancelled() {
+				// 用户取消，不发送错误
+			} else {
+				reader.sendErr(loopErr)
+			}
 		}
-		defer reader.closeChannel()
+		if reader.IsUserCancelled() {
+			sess.Messages = append(sess.Messages, message.NewInterruptedMessage())
+			_ = s.sessionSvc.Save(context.WithoutCancel(ctx), sess)
+		}
 	}()
 
 	return reader, nil

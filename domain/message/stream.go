@@ -36,6 +36,8 @@ type StreamMessageReader interface {
 	Recv() (*StreamMessage, error)
 	// Close 关闭消息流并释放相关资源
 	Close() error
+	// Interrupt 显式中断消息流并释放相关资源
+	Interrupt() error
 }
 
 // IsTextDelta 判定当前流消息是否为文本生成片段

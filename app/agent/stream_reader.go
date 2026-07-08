@@ -13,12 +13,13 @@ import (
 // ==========================================
 
 type agentEventReader struct {
-	ch     chan *message.StreamMessage
-	errCh  chan error
-	ctx    context.Context
-	cancel context.CancelFunc
-	mu     sync.Mutex
-	closed bool
+	ch            chan *message.StreamMessage
+	errCh         chan error
+	ctx           context.Context
+	cancel        context.CancelFunc
+	mu            sync.Mutex
+	closed        bool
+	userCancelled bool
 }
 
 func (r *agentEventReader) Recv() (*message.StreamMessage, error) {
@@ -43,6 +44,20 @@ func (r *agentEventReader) Recv() (*message.StreamMessage, error) {
 func (r *agentEventReader) Close() error {
 	r.cancel()
 	return nil
+}
+
+func (r *agentEventReader) Interrupt() error {
+	r.mu.Lock()
+	r.userCancelled = true
+	r.mu.Unlock()
+	r.cancel()
+	return nil
+}
+
+func (r *agentEventReader) IsUserCancelled() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.userCancelled
 }
 
 func (r *agentEventReader) closeChannel() {

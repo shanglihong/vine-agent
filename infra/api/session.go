@@ -166,7 +166,9 @@ func (h *APIHandler) Chat(w http.ResponseWriter, r *http.Request) {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	h.activeStreams.Store(sessionID, reader)
 	defer func() {
+		h.activeStreams.Delete(sessionID)
 		_ = reader.Close()
 	}()
 
@@ -262,7 +264,9 @@ func (h *APIHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	h.activeStreams.Store(sessionID, reader)
 	defer func() {
+		h.activeStreams.Delete(sessionID)
 		_ = reader.Close()
 	}()
 
@@ -313,4 +317,36 @@ func (h *APIHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 		}
 	}
+}
+
+// 6. POST /api/sessions/{id}/cancel
+func (h *APIHandler) Cancel(w http.ResponseWriter, r *http.Request) {
+	if h.setCORS(w, r) {
+		return
+	}
+	sessionID := r.PathValue("id")
+	if sessionID == "" {
+		h.respondError(w, http.StatusBadRequest, "missing session_id in path")
+		return
+	}
+
+	val, ok := h.activeStreams.Load(sessionID)
+	if !ok {
+		h.respondJSON(w, http.StatusOK, map[string]string{"status": "no active stream found"})
+		return
+	}
+
+	reader, ok := val.(message.StreamMessageReader)
+	if !ok {
+		h.respondError(w, http.StatusInternalServerError, "invalid reader type in stream map")
+		return
+	}
+
+	if err := reader.Interrupt(); err != nil {
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.activeStreams.Delete(sessionID)
+	h.respondJSON(w, http.StatusOK, map[string]string{"status": "cancelled"})
 }
