@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 interface InputBarProps {
   inputValue: string;
@@ -23,97 +23,170 @@ export default function InputBar({
   onSubmit,
   onCancelChat,
 }: InputBarProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 监听点击下拉菜单外部自动关闭
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // 自动根据打字内容调整 textarea 高度
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [inputValue]);
+
+  // 智能拦截键盘回车发送，Shift+Enter 则换行
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (inputValue.trim() && !isStreaming && !pendingInterrupt && currentSessionID) {
+        onSubmit(e as unknown as React.FormEvent);
+      }
+    }
+  };
+
+  const models = [
+    { id: 'deepseek-v4-flash', label: 'deepseek-v4-flash' },
+    { id: 'deepseek-v4-pro', label: 'deepseek-v4-pro' }
+  ];
+
+  const selectedLabel = models.find((m) => m.id === selectedModel)?.label || selectedModel;
+
   return (
     <form className="input-area" onSubmit={onSubmit}>
       <div className="input-container">
-        <div className="model-selector-pill">
-          <select
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              outline: 'none',
-              fontSize: 'inherit',
-              fontWeight: 'inherit',
-              color: 'inherit',
-              cursor: 'pointer',
-              padding: 0,
-              margin: 0,
-            }}
-          >
-            <option
-              value="deepseek-v4-flash"
-              style={{ color: 'var(--text-main)', background: 'var(--bg-card)' }}
-            >
-              deepseek-v4-flash
-            </option>
-            <option
-              value="deepseek-v4-pro"
-              style={{ color: 'var(--text-main)', background: 'var(--bg-card)' }}
-            >
-              deepseek-v4-pro
-            </option>
-          </select>
+        {/* 1. 上层：打字输入区域 */}
+        <div className="input-body-row">
+          <textarea
+            ref={textareaRef}
+            className="chat-input-box"
+            placeholder={
+              pendingInterrupt
+                ? '当前会话已挂起，请审查上面的敏感操作安全卡片。'
+                : '给 Vine-Agent 发送消息...'
+            }
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isStreaming || !!pendingInterrupt || !currentSessionID}
+            rows={1}
+          />
         </div>
-        <input
-          type="text"
-          className="chat-input-box"
-          placeholder={
-            pendingInterrupt
-              ? '当前会话已挂起，请审查上面的敏感操作安全卡片。'
-              : '给 Vine-Agent 发送消息...'
-          }
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          disabled={isStreaming || !!pendingInterrupt || !currentSessionID}
-        />
-        {isStreaming ? (
-          <button
-            type="button"
-            className="send-btn stop-btn"
-            style={{ background: '#ef4444', color: '#ffffff' }}
-            onClick={onCancelChat}
-            title="停止生成"
-          >
-            {/* 停止方块图标 */}
-            <svg
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              fill="currentColor"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+
+        {/* 2. 下层：控制栏（左侧模型选择器，右侧发送/停止按钮） */}
+        <div className="input-control-row">
+          {/* 左侧：芯片状模型选择药丸 */}
+          <div className="model-selector-container" ref={dropdownRef}>
+            <button
+              type="button"
+              className={`model-selector-pill ${isOpen ? 'active' : ''}`}
+              onClick={() => setIsOpen(!isOpen)}
+              disabled={isStreaming || !!pendingInterrupt || !currentSessionID}
             >
-              <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
-            </svg>
-          </button>
-        ) : (
-          <button
-            type="submit"
-            className="send-btn"
-            style={{ background: inputValue.trim() ? 'var(--ai-accent)' : '#e5e7eb' }}
-            disabled={!inputValue.trim() || !!pendingInterrupt || !currentSessionID}
-          >
-            {/* 向上发送箭头 */}
-            <svg
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="12" y1="19" x2="12" y2="5"></line>
-              <polyline points="5 12 12 5 19 12"></polyline>
-            </svg>
-          </button>
-        )}
+              {/* 极简 AI 星光 SVG 图标，代表智能模型 */}
+              <svg className="model-selector-chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2C12 2 12 12 2 12C12 12 12 22 12 22C12 22 12 12 22 12C12 12 22 12 12 2z" />
+              </svg>
+              <span className="model-selector-label">{selectedLabel}</span>
+              <svg
+                className={`model-selector-arrow ${isOpen ? 'open' : ''}`}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            {isOpen && (
+              <div className="model-dropdown-menu">
+                {models.map((m) => (
+                  <div
+                    key={m.id}
+                    className={`model-dropdown-item ${selectedModel === m.id ? 'selected' : ''}`}
+                    onClick={() => {
+                      setSelectedModel(m.id);
+                      setIsOpen(false);
+                    }}
+                  >
+                    <span className="item-check-icon">
+                      {selectedModel === m.id && (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className="item-label">{m.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 右侧：发送/停止按钮 */}
+          <div className="action-buttons-group">
+            {isStreaming ? (
+              <button
+                type="button"
+                className="send-btn stop-btn"
+                style={{ background: '#ef4444', color: '#ffffff' }}
+                onClick={onCancelChat}
+                title="停止生成"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="15"
+                  height="15"
+                  fill="currentColor"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
+                </svg>
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className="send-btn"
+                style={{ background: inputValue.trim() ? 'var(--ai-accent)' : '#e5e7eb' }}
+                disabled={!inputValue.trim() || !!pendingInterrupt || !currentSessionID}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="15"
+                  height="15"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="12" y1="19" x2="12" y2="5"></line>
+                  <polyline points="5 12 12 5 19 12"></polyline>
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </form>
   );
 }
+
+

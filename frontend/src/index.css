@@ -57,30 +57,30 @@
    夜间模式 (Dark Mode) - 适配 Antigravity IDE 深炭灰配色
    ========================================================================= */
 :root.dark {
-  --bg-main: #1e1e1e;               /* Antigravity 主背景，深炭灰 */
-  --bg-sidebar: #181818;            /* 侧边栏，略深碳灰 */
-  --bg-card: #252526;               /* 卡片，稍微浅一点的深灰 */
-  --bg-input: #2a2a2a;              /* 输入框背景 */
-  --border-color: #2d2d2d;          /* 中灰科技线条 */
+  --bg-main: #0a0e17;               /* 极深冷靛蓝，主聊天背景 */
+  --bg-sidebar: #06080d;            /* 深曜石黑，侧边栏背景 */
+  --bg-card: #121824;               /* 浮动卡片背景，建立悬浮对比 */
+  --bg-input: #161d2b;              /* 底部输入框背景 */
+  --border-color: rgba(255, 255, 255, 0.06); /* 半透明微光边缘线 */
   
-  --primary-color: #3b82f6;         /* 科技亮蓝 (DeepSeek 官方蓝) */
-  --primary-hover: #2563eb;
+  --primary-color: #38bdf8;         /* 莫兰迪天蓝，科技亮点 */
+  --primary-hover: #0284c7;
   
-  --ai-accent: #3b82f6;             
-  --success-color: #38bdf8;         /* 亮天蓝色，用于偏好卡片 */
+  --ai-accent: #38bdf8;             
+  --success-color: #38bdf8;         
   --warning-color: #f59e0b;
   
-  --text-main: #e3e3e3;             /* 舒适灰白 */
-  --text-secondary: #a0a0a0;        /* 钢灰二级 */
-  --text-muted: #5d5d5d;            /* 哑光灰 */
+  --text-main: #e2e8f0;             /* Slate 200，护眼长文主字色 */
+  --text-secondary: #94a3b8;        /* Slate 400，钢灰二级文本 */
+  --text-muted: #475569;            /* Slate 600，低饱和次要文本 */
   
-  --bubble-user: #2b2b2b;           /* 用户气泡 */
+  --bubble-user: #1a2336;           /* 用户气泡，高雅微亮蓝灰 */
   --bubble-ai: transparent;
-  --bubble-reasoning: #151515;      /* 思考区背景 */
-  --bubble-reasoning-border: #2a2a2a;
+  --bubble-reasoning: #0c111c;      /* Thinking 展开背景，下陷微暗色 */
+  --bubble-reasoning-border: rgba(255, 255, 255, 0.04);
   
-  --warning-bg: rgba(245, 158, 11, 0.04);
-  --warning-border: #d97706;
+  --warning-bg: rgba(245, 158, 11, 0.03);
+  --warning-border: rgba(245, 158, 11, 0.2);
 }
 
 /* 基础重置 */
@@ -213,7 +213,7 @@ body {
 }
 
 .session-item {
-  padding: 10px 12px;
+  padding: 10px 14px; /* 恢复自然的左右 padding */
   border-radius: var(--radius-md);
   background: transparent;
   cursor: pointer;
@@ -221,6 +221,11 @@ body {
   transition: var(--transition-smooth);
   border: none;
   text-align: left;
+  display: flex; /* 开启水平 flex 排列 */
+  justify-content: space-between; /* 名字与时间分立两端 */
+  align-items: center; /* 垂直居中对齐 */
+  width: 100%;
+  gap: 12px; /* 留出一定的两端缓冲间距 */
 }
 
 .session-item:hover {
@@ -231,10 +236,20 @@ body {
 }
 
 .session-item.active {
-  background: #ececec;
+  background: #f1f5f9; /* 亮色下莫兰迪中性浅灰底色 */
+  color: var(--text-main);
 }
+.session-item.active .session-name {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
 .dark .session-item.active {
-  background: #2b2b2b;
+  background: rgba(255, 255, 255, 0.05); /* 暗色下莫兰迪灰黑底色 */
+  color: #ffffff;
+}
+.dark .session-item.active .session-name {
+  color: #ffffff;
 }
 
 .session-name {
@@ -244,16 +259,18 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 2px;
+  flex: 1; /* 占据主要左侧空间 */
+  min-width: 0; /* 允许 flex 容器下截断生效 */
 }
 
 .session-meta {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 6px;
   font-size: 11px;
-  font-family: var(--font-mono);
-  color: var(--text-secondary);
+  font-family: var(--font-sans); /* 统一为系统通用的无衬线主字体，保持界面一致性 */
+  color: var(--text-muted); /* 将字色弱化为 muted 最淡辅助色，降低视觉比重 */
+  flex-shrink: 0; /* 锁死时间，防止被左侧会话名挤压折行 */
 }
 
 .status-badge {
@@ -336,6 +353,34 @@ body {
   color: var(--text-main);
 }
 .dark .toggle-memory-btn:hover {
+  background: #2b2b3c;
+  color: #ffffff;
+}
+
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* 右上角各控制图标之间 8px 优雅对齐留白 */
+}
+
+.toggle-thinking-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 50%;
+  transition: var(--transition-smooth);
+  flex-shrink: 0;
+}
+.toggle-thinking-btn:hover {
+  background: #e2e8f0;
+  color: var(--text-main);
+}
+.dark .toggle-thinking-btn:hover {
   background: #2b2b3c;
   color: #ffffff;
 }
@@ -517,7 +562,7 @@ body {
 }
 
 .chat-bubble {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.6;
   position: relative;
   word-wrap: break-word;
@@ -531,11 +576,13 @@ body {
 }
 
 .message-wrapper.user .chat-bubble {
+  flex: initial;
+  width: fit-content;
   max-width: 85%;
   background: var(--bubble-user);
-  padding: 10px 16px;
-  border-radius: 18px;
-  box-shadow: var(--shadow-sm);
+  padding: 11px 18px; /* 拓宽内边距，让对话框体量更饱满大方 */
+  border-radius: 12px; /* 由原本的 18px 圆滚胶囊重构为 Codex 12px 微圆角，消除视觉冲突 */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.01); /* 微调投影使其在白底上更有浮出质感 */
   transition: background-color 0.3s ease;
 }
 
@@ -582,48 +629,92 @@ body {
   transform: rotate(90deg);
 }
 
-/* 工具步骤 badge */
+/* 工具步骤 badge：精细圆角气泡，使用莫兰迪中性 Slate 灰蓝色系 */
 .tool-steps-badge {
   font-size: 10px;
-  color: var(--text-muted);
-  background: color-mix(in srgb, var(--border-color) 40%, transparent);
-  border: 1px solid var(--border-color);
-  border-radius: 99px;
-  padding: 1px 6px;
-  font-weight: 500;
-  margin-left: 4px;
+  color: #475569; /* Slate 600 */
+  background: #f1f5f9; /* Slate 100 极轻蓝灰底 */
+  border: 1px solid #e2e8f0; /* Slate 200 极淡边框 */
+  border-radius: 6px; /* 由原本的 99px 药丸大圆角收紧为 6px 极客风格 */
+  padding: 1px 7px;
+  font-weight: 600;
+  margin-left: 6px;
+  display: inline-flex;
+  align-items: center;
 }
 
+.dark .tool-steps-badge {
+  color: #94a3b8; /* Slate 400 */
+  background: rgba(255, 255, 255, 0.04); /* 暗色微弱白透，实现完美夜间融合 */
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* 推理内容区：调整背景与圆角，使其能和主答复正文在视觉上完美区分 */
 .reasoning-content {
   margin-top: 6px;
-  padding-left: 14px;
-  border-left: 1.5px solid var(--border-color);
+  padding: 10px 14px;
+  background: var(--bubble-reasoning);
+  border-left: 2px solid var(--border-color);
+  border-radius: 12px; /* 升级为 12px 微圆角卡片，呼应用户气泡与输入框 */
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* 丝滑的滑入和渐现动画 */
+  animation: expand-fade-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: top;
+}
+
+@keyframes expand-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .reasoning-text {
   white-space: pre-wrap;
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 12.5px;
+  line-height: 1.65;
   color: var(--text-secondary);
-  opacity: 0.85;
+  font-weight: 450; /* 提升字重，使笔画在小字号下清晰有力，不虚发糊 */
   font-family: var(--font-sans);
 }
 
-/* Tool steps list — 左色边框风格，减少背景层叠 */
+.dark .reasoning-text {
+  color: #cbd5e1; /* 暗色模式下稍微提亮（Slate 300），确保小字在深蓝背景下的清晰度 */
+}
 
-/* 单张工具步骤卡片 */
+/* Tool steps list — 增强对比度，突出卡片悬浮感 */
+
 .tool-step-card {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-left: 2px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  border: 1px solid rgba(0, 0, 0, 0.04); /* 精细半透明边框线，减少黑白突兀感 */
+  border-left: 4px solid var(--border-color); /* 4px 状态指示彩条 */
+  border-radius: 12px; /* 对齐 12px 微圆角容器层级 */
   overflow: hidden;
   font-size: 12px;
-  margin: 4px 0;
-  transition: border-color 0.2s ease;
+  margin: 6px 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.02); /* 温润微弱盒阴影 */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dark .tool-step-card {
+  border: 1px solid rgba(255, 255, 255, 0.06); /* 暗色下保持微光半透明边 */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* 当工具处于 pending 运行时，让其头部图标慢速旋转，增强动感反馈 */
+.tool-step-card:has(.tool-step-status.pending) .tool-icon {
+  animation: spin-tool-icon 3.5s linear infinite;
+}
+
+@keyframes spin-tool-icon {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .tool-step-card:has(.tool-step-status.success) {
@@ -642,19 +733,19 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 10px;
-  background: color-mix(in srgb, var(--border-color) 8%, transparent);
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--border-color) 12%, transparent);
 }
 
 .tool-name-container {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .tool-step-name {
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-main);
   font-family: var(--font-mono);
   font-size: 12px;
 }
@@ -666,43 +757,45 @@ body {
   gap: 4px;
   font-size: 10px;
   border-radius: 99px;
-  padding: 1.5px 6px;
-  font-weight: 500;
+  padding: 2px 8px;
+  font-weight: 600;
   text-transform: capitalize;
 }
 .tool-step-status.success {
   color: #16a34a;
-  background: rgba(34, 197, 94, 0.05);
+  background: rgba(34, 197, 94, 0.08);
 }
 .tool-step-status.success .status-dot-indicator {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
   background-color: #22c55e;
   border-radius: 50%;
 }
 .tool-step-status.error {
   color: #dc2626;
-  background: rgba(239, 68, 68, 0.05);
+  background: rgba(239, 68, 68, 0.08);
 }
 .tool-step-status.error .status-dot-indicator {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
   background-color: #ef4444;
+  border-radius: 50%;
 }
 .tool-step-status.pending {
   color: #d97706;
-  background: rgba(245, 158, 11, 0.05);
+  background: rgba(245, 158, 11, 0.08);
 }
 .tool-step-status.pending .status-dot-indicator {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
   background-color: #f59e0b;
+  border-radius: 50%;
   animation: pulse-dot-anim 1.2s infinite;
 }
 
 /* 入参/返回值 分区 */
 .tool-step-section {
-  padding: 8px 10px;
+  padding: 10px 12px;
   background: transparent;
 }
 .tool-step-section + .tool-step-section {
@@ -713,12 +806,12 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--text-muted);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .section-label-icon {
@@ -743,25 +836,26 @@ body {
 
 /* 代码块 */
 .tool-step-code {
-  margin: 4px 0 0 0;
+  margin: 6px 0 0 0;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 11px;
   white-space: pre-wrap;
   word-break: break-all;
-  line-height: 1.5;
-  max-height: 200px;
+  line-height: 1.6;
+  max-height: 250px;
   overflow-y: auto;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-radius: var(--radius-sm);
-  background: #f6f8fa;
-  color: #24292e;
-  border: 1px solid #e1e4e6;
+  background: #f8fafc; /* Slate 50 灰蓝底色 */
+  color: #334155; /* 中深蓝灰字色 */
+  border: 1px solid #e2e8f0; /* 精细浅边框 */
+  letter-spacing: -0.01em;
 }
 
 .dark .tool-step-code {
-  background: #18181c;
-  color: #d4d4d4;
-  border: 1px solid #2d2d30;
+  background: #111115; /* 深夜纯黑底色 */
+  color: #cbd5e1; /* 亮蓝灰字色 */
+  border: 1px solid #27272a;
 }
 
 .tool-step-code::-webkit-scrollbar {
@@ -838,39 +932,32 @@ body {
 }
 
 /* =========================================================================
-   对话已中断分割线 (Interrupted Message Divider)
-   — 极淡化，像 iMessage 时间戳，退到背景
+   对话已中断内联页脚 (Interrupted Inline Message Footer)
+   — 内嵌于 AI 回答卡片内部最底部，天然与文字左对齐，完全去除悬空与截断感
    ========================================================================= */
-.interrupted-divider {
-  display: flex;
+.message-interrupted-footer {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  margin: 0 auto;
-  width: 100%;
-  max-width: var(--content-width);
-  padding: 0 20px;
-  pointer-events: none;
-}
-
-.interrupted-divider::before,
-.interrupted-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--border-color);
-  opacity: 0.8;
-}
-
-.interrupted-divider-label {
-  font-size: 11px;
+  gap: 4.5px; /* 间距微调，显得更紧凑 */
+  margin-top: 10px; /* 紧随 AI 生成内容的结尾 */
+  color: #e11d48; /* 亮色下采用莫兰迪玫瑰红，提示清晰且维持高格调 */
+  opacity: 0.85; /* 大幅调高不透明度，确保能清晰阅读，不再模糊 */
+  font-size: 10.5px;
   font-weight: 500;
-  color: var(--text-muted);
-  white-space: nowrap;
-  letter-spacing: 0.2px;
-  padding: 2px 10px;
-  border-radius: 99px;
-  background: color-mix(in srgb, var(--border-color) 60%, transparent);
+  user-select: none;
+  line-height: 1; /* 消除默认字体多余行高产生的垂直定位误差 */
+}
+
+.dark .message-interrupted-footer {
+  color: #fb7185; /* 暗色下切换为温润柔粉红，防刺眼 */
+}
+
+.message-interrupted-footer .interrupted-icon {
+  width: 10px;
+  height: 10px;
+  stroke: currentColor;
   flex-shrink: 0;
+  transform: translateY(-1px); /* 视网膜级 -1px 向上提升偏置，使图标中心绝对精准卡入小写字母中线 */
 }
 
 /* =========================================================================
@@ -1007,69 +1094,207 @@ body {
    聊天输入底框 (ChatInput)
    ========================================================================= */
 .input-area {
-  padding: 0 24px 24px 24px;
-  background: transparent;
+  padding: 16px 24px 24px 24px;
+  background: linear-gradient(180deg, transparent 0%, var(--bg-main) 30%); /* 渐变向上遮罩，使内容淡出输入栏 */
   display: flex;
   justify-content: center;
   width: 100%;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
 }
 
 .input-container {
   display: flex;
-  gap: 12px;
+  flex-direction: column; /* 重塑为纵向双层排列 */
+  gap: 12px; /* 增大留白，带来更加舒展大气的上下呼吸感 */
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 26px;
-  padding: 6px 6px 6px 18px;
-  align-items: center;
+  border-radius: 14px;
+  padding: 12px 14px 10px 14px; /* 精调内边距，提供大体量输入面板的饱满感 */
   width: 100%;
   max-width: var(--content-width);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.02), 0 1px 0 rgba(0, 0, 0, 0.01); /* 升级为悬浮立体软投影 */
   transition: var(--transition-smooth);
 }
 
 .input-container:focus-within {
-  border-color: #b4b4b4;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+  border-color: var(--primary-color); /* 聚焦时高亮系统主天蓝色 */
+  box-shadow: 0 6px 24px rgba(56, 189, 248, 0.12), 0 2px 8px rgba(56, 189, 248, 0.04); /* 聚焦蓝晕发光 */
 }
 .dark .input-container:focus-within {
-  border-color: #52525b;
+  border-color: var(--primary-color);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2); /* 暗色大投影 */
+}
+
+/* 纵向双层结构：上层输入区 */
+.input-body-row {
+  width: 100%;
+  display: flex;
+}
+
+/* 纵向双层结构：下层控制 Toolbar */
+.input-control-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-top: 6px; /* 进一步增大输入框与下方模型按钮的纵向留白间隔 */
+}
+
+.model-selector-container {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 .model-selector-pill {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  background: var(--bg-input);
+  padding: 0 10px;
+  border-radius: 999px; /* 精致纯药丸大圆角 */
+  border: 1px solid color-mix(in srgb, var(--primary-color) 15%, transparent); /* 自动继承主配色的极细淡边界 */
+  font-size: 12px; /* 字体放大到 12px，确保高度清晰可读 */
+  font-weight: 600;
+  color: var(--primary-color); /* 自动继承并使用系统内置的主色（亮色下为科技宝蓝，暗色下为莫兰迪天蓝） */
+  background: color-mix(in srgb, var(--primary-color) 7%, transparent); /* 自动根据主色计算淡底色，完全融底 */
   cursor: pointer;
   user-select: none;
   transition: var(--transition-smooth);
+  height: 26px; /* 稍微压缩高度到 26px，使其更为小巧精致 */
 }
 
-.model-selector-pill:hover {
-  background: #ececec;
-  color: var(--text-main);
+.model-selector-pill:hover:not(:disabled),
+.model-selector-pill.active {
+  background: color-mix(in srgb, var(--primary-color) 14%, transparent); /* 交互时蓝色加深 */
+  border-color: color-mix(in srgb, var(--primary-color) 30%, transparent);
+  color: var(--primary-hover);
 }
-.dark .model-selector-pill:hover {
-  background: #334155;
+
+.dark .model-selector-pill {
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent); /* 暗色下动态计算微蓝背景 */
+  border-color: color-mix(in srgb, var(--primary-color) 18%, transparent);
+  color: var(--primary-color);
+}
+
+.dark .model-selector-pill:hover:not(:disabled),
+.dark .model-selector-pill.active {
+  background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  border-color: color-mix(in srgb, var(--primary-color) 30%, transparent);
   color: #ffffff;
 }
 
+.model-selector-pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.model-selector-chip-icon {
+  width: 11px;
+  height: 11px;
+  stroke: currentColor;
+  flex-shrink: 0;
+}
+
+.model-selector-arrow {
+  width: 9.5px;
+  height: 9.5px;
+  stroke: currentColor;
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.model-selector-arrow.open {
+  transform: rotate(180deg);
+}
+
+/* 高级悬浮下拉菜单 */
+.model-dropdown-menu {
+  position: absolute;
+  bottom: calc(100% + 8px); /* 悬浮在输入框正上方 */
+  left: 0;
+  z-index: 100;
+  min-width: 160px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px; /* 8px 控件圆角 */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.02); /* 高档大范围软投影 */
+  padding: 5px 0;
+  overflow: hidden;
+  animation: dropdown-fade-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark .model-dropdown-menu {
+  background: #1c1c1e;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes dropdown-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.model-dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 14px 8px 10px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  transition: var(--transition-smooth);
+  gap: 6px;
+  user-select: none;
+}
+
+.model-dropdown-item:hover {
+  background: #f1f5f9;
+  color: var(--text-main);
+}
+
+.dark .model-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.model-dropdown-item.selected {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.dark .model-dropdown-item.selected {
+  color: var(--primary-color);
+}
+
+.item-check-icon {
+  width: 11px;
+  height: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--primary-color);
+}
+
+.item-check-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
 .chat-input-box {
-  flex: 1;
-  background: transparent;
+  width: 100%;
+  min-height: 26px; /* 升级为自适应 textarea */
+  max-height: 160px;
+  resize: none; /* 彻底移除手拉 resize */
   border: none;
+  background: transparent;
   color: var(--text-main);
   font-family: var(--font-sans);
-  font-size: 15.5px;
+  font-size: 15px; /* 统一聊天主字号 */
   outline: none;
-  padding: 6px 0;
+  line-height: 1.55;
+  padding: 0; /* 纵向不需要 padding 来占高，由自适应和 layout 控制 */
 }
 
 .chat-input-box::placeholder {
@@ -1077,9 +1302,9 @@ body {
 }
 
 .send-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%; /* 圆形按钮，复刻截图样式 */
   border: none;
   background: var(--border-color);
   color: #ffffff;
@@ -1385,13 +1610,13 @@ body {
    Markdown 渲染样式 (.markdown-body)
    ========================================================================= */
 .markdown-body {
-  line-height: 1.6;
-  font-size: 14px;
+  line-height: 1.75; /* 增加行距提供呼吸感 */
+  font-size: 15px; /* 统一字号，提升阅读舒适度 */
   color: var(--text-main);
 }
 
 .markdown-body p {
-  margin-bottom: 12px;
+  margin-bottom: 14px; /* 增加段落间距 */
 }
 
 .markdown-body p:last-child {
@@ -1405,11 +1630,11 @@ body {
 .markdown-body h4,
 .markdown-body h5,
 .markdown-body h6 {
-  margin-top: 16px;
-  margin-bottom: 8px;
+  margin-top: 24px; /* 标题与上文拉开更大距离，形成明确分组 */
+  margin-bottom: 10px;
   font-weight: 600;
   color: var(--text-main);
-  line-height: 1.25;
+  line-height: 1.35;
 }
 
 .markdown-body h1 { font-size: 1.5em; border-bottom: 1px solid var(--border-color); padding-bottom: 4px; }
@@ -1421,11 +1646,11 @@ body {
 .markdown-body ul,
 .markdown-body ol {
   padding-left: 20px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .markdown-body li {
-  margin-bottom: 4px;
+  margin-bottom: 6px; /* 列表项微增行距 */
 }
 
 .markdown-body ul {

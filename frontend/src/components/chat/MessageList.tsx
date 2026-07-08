@@ -48,6 +48,7 @@ interface MessageListProps {
   expandedReasoning: Record<number, boolean>;
   setExpandedReasoning: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
   onQuickAction: (text: string) => void;
+  username?: string;
 }
 
 export default function MessageList({
@@ -56,6 +57,7 @@ export default function MessageList({
   expandedReasoning,
   setExpandedReasoning,
   onQuickAction,
+  username,
 }: MessageListProps) {
   if (messages.length === 0) {
     return (
@@ -144,13 +146,7 @@ export default function MessageList({
     <>
       {messages.map((m, idx) => {
         if (m.role === 'interrupted') {
-          return (
-            <div key={idx} className="interrupted-divider">
-              <span className="interrupted-divider-label">
-                {m.content || '对话已中断'}
-              </span>
-            </div>
-          );
+          return null;
         }
 
         if (m.role === 'system') {
@@ -181,6 +177,7 @@ export default function MessageList({
         }
 
         const isUser = m.role === 'user';
+        const isNextInterrupted = !isUser && idx < messages.length - 1 && messages[idx + 1].role === 'interrupted';
         // 是否展开推理日志，默认展开。若在该 map 节点被手动置为 false，则折叠。
         const isReasoningExpanded = expandedReasoning[idx] !== false;
 
@@ -189,7 +186,7 @@ export default function MessageList({
             {/* 对话头像：USER 和 AI 均在左侧完美对齐呈现 */}
             <div className="message-avatar">
               {isUser ? (
-                'U'
+                username ? username[0].toUpperCase() : 'U'
               ) : (
                 // AI 专用 DeepSeek 星体神经网络蓝标
                 <svg
@@ -264,7 +261,7 @@ export default function MessageList({
                           let parsedArgs: Record<string, unknown> | null = null;
                           try {
                             if (item.toolArgs) parsedArgs = JSON.parse(item.toolArgs);
-                          } catch {}
+                          } catch { }
                           const statusClass = hasResult
                             ? item.error
                               ? 'error'
@@ -306,9 +303,8 @@ export default function MessageList({
                               )}
                               {hasResult && (
                                 <div
-                                  className={`tool-step-section ${
-                                    item.error ? 'tool-step-error' : 'tool-step-result'
-                                  }`}
+                                  className={`tool-step-section ${item.error ? 'tool-step-error' : 'tool-step-result'
+                                    }`}
                                 >
                                   <div className="tool-step-section-label">
                                     <svg className="section-label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -350,6 +346,15 @@ export default function MessageList({
                   ''
                 )}
               </div>
+              {isNextInterrupted && (
+                <div className="message-interrupted-footer">
+                  <svg className="interrupted-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                  </svg>
+                  <span>Generation stopped</span>
+                </div>
+              )}
             </div>
           </div>
         );

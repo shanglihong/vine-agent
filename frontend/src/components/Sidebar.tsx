@@ -1,5 +1,25 @@
 import { Session, UserInfo } from '../types';
 
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+
+  if (diffSec < 60) {
+    return 'now';
+  } else if (diffMin < 60) {
+    return `${diffMin}m`;
+  } else if (diffHr < 24) {
+    return `${diffHr}h`;
+  } else {
+    return `${diffDay}d`;
+  }
+}
+
 interface SidebarProps {
   sessions: Session[];
   currentSessionID: string;
@@ -27,6 +47,13 @@ export default function Sidebar({
 }: SidebarProps) {
   return (
     <aside className="sidebar">
+      {/* 桌面端 macOS 窗口三色圆点控制区 */}
+      <div className="window-controls">
+        <span className="control-dot red"></span>
+        <span className="control-dot yellow"></span>
+        <span className="control-dot green"></span>
+      </div>
+
       <div className="sidebar-header">
         <div className="logo-container">
           {/* 符合 Vine (葡萄藤蔓) 科技拓扑网格风格的 LOGO */}
@@ -63,17 +90,18 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* 新对话按钮 */}
+      {/* 极简无界 New chat 按钮 */}
       <button className="new-chat-btn" onClick={onCreateNewSession}>
         <svg
           viewBox="0 0 24 24"
-          width="14"
-          height="14"
+          width="13.5"
+          height="13.5"
           fill="none"
           stroke="currentColor"
           strokeWidth="2.2"
           strokeLinecap="round"
           strokeLinejoin="round"
+          style={{ marginRight: '8.5px', flexShrink: 0 }}
         >
           <line x1="12" y1="5" x2="12" y2="19"></line>
           <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -88,14 +116,11 @@ export default function Sidebar({
             className={`session-item ${currentSessionID === s.id ? 'active' : ''}`}
             onClick={() => onSelectSession(s.id)}
           >
-            <div className="session-name">{s.id}</div>
+            <div className="session-name" style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{s.id}</span>
+            </div>
             <div className="session-meta">
-              <span>
-                {new Date(s.updated_at).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </span>
+              <span>{formatRelativeTime(s.updated_at)}</span>
               {s.id === currentSessionID && isStreaming && (
                 <svg
                   className="spin-svg"
@@ -118,18 +143,18 @@ export default function Sidebar({
               )}
               {(s.status === 'pending_confirmation' ||
                 (s.id === currentSessionID && pendingInterrupt)) && (
-                <span
-                  className="status-badge pending"
-                  style={{
-                    marginLeft: '6px',
-                    fontSize: '9px',
-                    padding: '1.5px 5px',
-                    lineHeight: 1,
-                  }}
-                >
-                  PENDING
-                </span>
-              )}
+                  <span
+                    className="status-badge pending"
+                    style={{
+                      marginLeft: '6px',
+                      fontSize: '9px',
+                      padding: '1.5px 5px',
+                      lineHeight: 1,
+                    }}
+                  >
+                    PENDING
+                  </span>
+                )}
             </div>
           </button>
         ))}

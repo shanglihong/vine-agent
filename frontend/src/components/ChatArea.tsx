@@ -22,6 +22,7 @@ interface ChatAreaProps {
   setSelectedModel: (model: string) => void;
   isMemoryCollapsed: boolean;
   setIsMemoryCollapsed: (collapsed: boolean) => void;
+  username?: string;
 }
 
 export default function ChatArea({
@@ -39,6 +40,7 @@ export default function ChatArea({
   setSelectedModel,
   isMemoryCollapsed,
   setIsMemoryCollapsed,
+  username,
 }: ChatAreaProps) {
   const [inputValue, setInputValue] = useState<string>('');
   const messageEndRef = useRef<HTMLDivElement | null>(null);
@@ -58,6 +60,21 @@ export default function ChatArea({
   const handleQuickAction = (text: string) => {
     if (pendingInterrupt || isStreaming || !currentSessionID) return;
     setInputValue(text);
+  };
+
+  // 检查当前消息流中是否有任何 reasoning 思考块处于展开状态
+  const hasAnyExpanded = messages.some((m, idx) => {
+    const hasThinking = (m.timeline && m.timeline.some(t => t.kind === 'reasoning')) || m.reasoning_content;
+    return hasThinking && expandedReasoning[idx] !== false;
+  });
+
+  // 一键折叠或展开所有 AI 思考过程
+  const handleToggleAllThinking = () => {
+    const newExpanded: Record<number, boolean> = {};
+    messages.forEach((_, idx) => {
+      newExpanded[idx] = !hasAnyExpanded;
+    });
+    setExpandedReasoning(newExpanded);
   };
 
   // 强视觉会话状态指示 Badge 标签 (带 LED 脉冲呼吸指示点)
@@ -122,45 +139,70 @@ export default function ChatArea({
             {renderStatusBadge()}
           </div>
         </div>
-        <button
-          className="toggle-memory-btn"
-          onClick={() => setIsMemoryCollapsed(!isMemoryCollapsed)}
-          title={isMemoryCollapsed ? '展开记忆面板' : '折叠记忆面板'}
-        >
-          {isMemoryCollapsed ? (
-            /* 折叠状态：显示"面板隐藏"标识 — 两条竖线 + 左展开箭头 */
-            <svg
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+        <div className="chat-header-actions">
+          {/* 全局折叠所有思考的智能按钮 */}
+          {messages.length > 0 && messages.some(m => (m.timeline && m.timeline.some(t => t.kind === 'reasoning')) || m.reasoning_content) && (
+            <button
+              className="toggle-thinking-btn"
+              onClick={handleToggleAllThinking}
+              title={hasAnyExpanded ? '收起所有思考过程' : '展开所有思考过程'}
             >
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <line x1="15" y1="3" x2="15" y2="21" />
-              <polyline points="11 9 8 12 11 15" />
-            </svg>
-          ) : (
-            /* 展开状态：显示"面板可见"标识 — 两条竖线 + 右折叠箭头 */
-            <svg
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <line x1="15" y1="3" x2="15" y2="21" />
-              <polyline points="13 9 16 12 13 15" />
-            </svg>
+              {hasAnyExpanded ? (
+                /* 展开中，显示向上收起的双折线 Chevron */
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="17 11 12 6 7 11" />
+                  <polyline points="17 18 12 13 7 18" />
+                </svg>
+              ) : (
+                /* 折叠中，显示向下展开的双折线 Chevron */
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="7 13 12 18 17 13" />
+                  <polyline points="7 6 12 11 17 6" />
+                </svg>
+              )}
+            </button>
           )}
-        </button>
+
+          <button
+            className="toggle-memory-btn"
+            onClick={() => setIsMemoryCollapsed(!isMemoryCollapsed)}
+            title={isMemoryCollapsed ? '展开记忆面板' : '折叠记忆面板'}
+          >
+            {isMemoryCollapsed ? (
+              /* 折叠状态：显示"面板隐藏"标识 — 两条竖线 + 左展开箭头 */
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <line x1="15" y1="3" x2="15" y2="21" />
+                <polyline points="11 9 8 12 11 15" />
+              </svg>
+            ) : (
+              /* 展开状态：显示"面板可见"标识 — 两条竖线 + 右折叠箭头 */
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <line x1="15" y1="3" x2="15" y2="21" />
+                <polyline points="13 9 16 12 13 15" />
+              </svg>
+            )}
+          </button>
+        </div>
       </header>
 
       <div className="message-stream">
@@ -170,6 +212,7 @@ export default function ChatArea({
           expandedReasoning={expandedReasoning}
           setExpandedReasoning={setExpandedReasoning}
           onQuickAction={handleQuickAction}
+          username={username}
         />
 
         {/* 敏感工具确认审批卡片 */}

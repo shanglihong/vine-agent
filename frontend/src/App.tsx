@@ -168,6 +168,7 @@ export default function App() {
         setSelectedModel={setSelectedModel}
         isMemoryCollapsed={isMemoryCollapsed}
         setIsMemoryCollapsed={setIsMemoryCollapsed}
+        username={userInfo?.username}
       />
       <MemoryPanel
         userProfile={userProfile}
