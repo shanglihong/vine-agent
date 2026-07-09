@@ -31,6 +31,7 @@ interface SidebarProps {
   onSelectSession: (id: string) => void;
   onCreateNewSession: () => void;
   onToggleTheme: () => void;
+  onDeleteSession: (id: string, e: React.MouseEvent) => void;
 }
 
 export default function Sidebar({
@@ -44,6 +45,7 @@ export default function Sidebar({
   onSelectSession,
   onCreateNewSession,
   onToggleTheme,
+  onDeleteSession,
 }: SidebarProps) {
   return (
     <aside className="sidebar">
@@ -63,9 +65,10 @@ export default function Sidebar({
             style={{
               fill: 'none',
               stroke: 'var(--primary-color)',
-              strokeWidth: 1.8,
+              strokeWidth: 1.5,
               strokeLinecap: 'round',
               strokeLinejoin: 'round',
+              flexShrink: 0,
             }}
             xmlns="http://www.w3.org/2000/svg"
           >
@@ -78,12 +81,12 @@ export default function Sidebar({
             <line x1="10" y1="12" x2="14" y2="12" />
             <line x1="10" y1="12" x2="12" y2="16" />
             <line x1="14" y1="12" x2="12" y2="16" />
-            <circle cx="8" cy="8" r="2" fill="var(--primary-color)" />
-            <circle cx="12" cy="7" r="2" fill="var(--primary-color)" />
-            <circle cx="16" cy="8" r="2" fill="var(--primary-color)" />
-            <circle cx="10" cy="12" r="2" fill="var(--primary-color)" />
-            <circle cx="14" cy="12" r="2" fill="var(--primary-color)" />
-            <circle cx="12" cy="16" r="2" fill="var(--primary-color)" />
+            <circle cx="8" cy="8" r="1.8" fill="var(--primary-color)" />
+            <circle cx="12" cy="7" r="1.8" fill="var(--primary-color)" />
+            <circle cx="16" cy="8" r="1.8" fill="var(--primary-color)" />
+            <circle cx="10" cy="12" r="1.8" fill="var(--primary-color)" />
+            <circle cx="14" cy="12" r="1.8" fill="var(--primary-color)" />
+            <circle cx="12" cy="16" r="1.8" fill="var(--primary-color)" />
             <path d="M12 4.5V2.5c0-.5.4-.8.8-.8h1.2" />
           </svg>
           <h1>Vine-Agent</h1>
@@ -120,7 +123,28 @@ export default function Sidebar({
               <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{s.id}</span>
             </div>
             <div className="session-meta">
-              <span>{formatRelativeTime(s.updated_at)}</span>
+              <span className="session-time">{formatRelativeTime(s.updated_at)}</span>
+              <button
+                className="session-delete-btn"
+                title="Delete session"
+                onClick={(e) => onDeleteSession(s.id, e)}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="13"
+                  height="13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  <line x1="10" y1="11" x2="10" y2="17"></line>
+                  <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+              </button>
               {s.id === currentSessionID && isStreaming && (
                 <svg
                   className="spin-svg"

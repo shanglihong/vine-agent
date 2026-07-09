@@ -350,3 +350,28 @@ func (h *APIHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 	h.activeStreams.Delete(sessionID)
 	h.respondJSON(w, http.StatusOK, map[string]string{"status": "cancelled"})
 }
+
+// 7. DELETE /api/sessions/{id}
+func (h *APIHandler) DeleteSession(w http.ResponseWriter, r *http.Request) {
+	if h.setCORS(w, r) {
+		return
+	}
+	sessionID := r.PathValue("id")
+	if sessionID == "" {
+		h.respondError(w, http.StatusBadRequest, "missing session_id in path")
+		return
+	}
+
+	err := h.sessionSvc.Delete(r.Context(), sessionID)
+	if err != nil {
+		if errors.Is(err, session.ErrSessionNotFound) {
+			h.respondError(w, http.StatusNotFound, "session not found")
+			return
+		}
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]string{"session_id": sessionID, "status": "deleted"})
+}
+

@@ -25,6 +25,7 @@ export function useChat({ userID, selectedModel, loadSessions, evolveProfile }: 
 
   // 用于在流式对话中动态更新的消息缓冲区
   const streamingMsgRef = useRef<Message | null>(null);
+  const aiMsgIdxRef = useRef<number>(-1);
 
   // 2a. 从服务器加载消息，并将 assistant → tool → assistant 链合并为单条消息
   //     使历史消息结构与流式时的单气泡完全一致
@@ -112,11 +113,12 @@ export function useChat({ userID, selectedModel, loadSessions, evolveProfile }: 
 
     // 追加用户消息到列表
     const userMsg: Message = { role: 'user', content: text };
-    setMessages((prev) => [...prev, userMsg]);
-
-    // 初始化占位 AI 消息
     const initialAiMsg: Message = { role: 'assistant', content: '', reasoning_content: '' };
-    setMessages((prev) => [...prev, initialAiMsg]);
+    setMessages((prev) => {
+      const next = [...prev, userMsg, initialAiMsg];
+      aiMsgIdxRef.current = next.length - 1;
+      return next;
+    });
     streamingMsgRef.current = initialAiMsg;
 
     try {
@@ -143,11 +145,13 @@ export function useChat({ userID, selectedModel, loadSessions, evolveProfile }: 
     setIsStreaming(true);
 
     // 在页面上模拟插入一条系统提示
-    setMessages((prev) => [...prev, { role: 'system', content: '✓ 人工确认：已同意执行敏感工具操作。正在恢复执行...' }]);
-
     // 重新追加 AI 占位符
     const initialAiMsg: Message = { role: 'assistant', content: '', reasoning_content: '' };
-    setMessages((prev) => [...prev, initialAiMsg]);
+    setMessages((prev) => {
+      const next = [...prev, { role: 'system' as const, content: '✓ 人工确认：已同意执行敏感工具操作。正在恢复执行...' }, initialAiMsg];
+      aiMsgIdxRef.current = next.length - 1;
+      return next;
+    });
     streamingMsgRef.current = initialAiMsg;
 
     try {
@@ -230,6 +234,7 @@ export function useChat({ userID, selectedModel, loadSessions, evolveProfile }: 
         } catch {
           // 降级使用 raw data
         }
+
         updateLastAiMessage((msg) => {
           msg.content += text;
         });

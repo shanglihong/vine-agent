@@ -44,11 +44,47 @@ export default function ChatArea({
 }: ChatAreaProps) {
   const [inputValue, setInputValue] = useState<string>('');
   const messageEndRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const inputBarRef = useRef<HTMLDivElement | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [inputBarHeight, setInputBarHeight] = useState<number>(106);
 
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    setShowScrollTop(scrollTop > 200);
+    setShowScrollBottom(scrollHeight - (scrollTop + clientHeight) > 200);
+  };
+  const scrollToTop = () => {
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const scrollToBottom = () => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    }
+  };
   // 消息更新后滚动到底部
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setTimeout(handleScroll, 100);
   }, [messages, isStreaming, pendingInterrupt]);
+
+  // 监听输入区高度变化以防在小屏幕或多行输入时发生组件重叠
+  useEffect(() => {
+    const el = inputBarRef.current;
+    if (!el) return;
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setInputBarHeight(entry.target.clientHeight);
+      }
+    });
+    resizeObserver.observe(el);
+    return () => resizeObserver.disconnect();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,38 +142,46 @@ export default function ChatArea({
   return (
     <main className="chat-area">
       <header className="chat-header">
-        <div className="chat-title" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* 顶栏左侧会话 (Session) 含义的对话气泡图标 */}
+        <div className="chat-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* 精致的淡色会话图标 */}
           <svg
             viewBox="0 0 24 24"
             style={{
-              width: '18px',
-              height: '18px',
+              width: '15px',
+              height: '15px',
               fill: 'none',
-              stroke: 'var(--primary-color)',
+              stroke: 'var(--text-muted)',
               strokeWidth: 2,
               strokeLinecap: 'round',
               strokeLinejoin: 'round',
+              opacity: 0.8,
               flexShrink: 0,
             }}
             xmlns="http://www.w3.org/2000/svg"
           >
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <h2
-              style={{
-                fontSize: '14.5px',
-                fontWeight: 600,
-                color: 'var(--text-main)',
-                margin: 0,
-                lineHeight: 1,
-              }}
-            >
-              {currentSessionID || 'No active session'}
-            </h2>
-            {renderStatusBadge()}
-          </div>
+
+          {/* 会话 ID 标题 */}
+          <h2
+            style={{
+              fontSize: '13.5px',
+              fontWeight: 500,
+              color: 'var(--text-main)',
+              margin: 0,
+              lineHeight: 1.2,
+              letterSpacing: '-0.1px',
+              fontFamily: 'var(--font-sans)',
+            }}
+          >
+            {currentSessionID || 'No active session'}
+          </h2>
+
+          {/* 面包屑斜杠分隔符 */}
+          <span style={{ fontSize: '11px', color: 'var(--border-color)', margin: '0 2px', userSelect: 'none' }}>/</span>
+
+          {/* 精致扁平状态徽标 */}
+          {renderStatusBadge()}
         </div>
         <div className="chat-header-actions">
           {/* 全局折叠所有思考的智能按钮 */}
@@ -205,7 +249,7 @@ export default function ChatArea({
         </div>
       </header>
 
-      <div className="message-stream">
+      <div className="message-stream" ref={scrollContainerRef} onScroll={handleScroll}>
         <MessageList
           messages={messages}
           isStreaming={isStreaming}
@@ -249,17 +293,42 @@ export default function ChatArea({
         <div ref={messageEndRef} />
       </div>
 
-      <InputBar
-        inputValue={inputValue}
-        setInputValue={setInputValue}
-        selectedModel={selectedModel}
-        setSelectedModel={setSelectedModel}
-        isStreaming={isStreaming}
-        pendingInterrupt={pendingInterrupt}
-        currentSessionID={currentSessionID}
-        onSubmit={handleSubmit}
-        onCancelChat={onCancelChat}
-      />
+      {/* 滚动浮动控制组：高度自适应计算定位，防组件重叠 */}
+      <div className="scroll-float-group" style={{ bottom: `${inputBarHeight + 12}px` }}>
+        <button
+          className={`scroll-float-btn ${showScrollTop ? 'visible' : ''}`}
+          onClick={scrollToTop}
+          title="回到顶部"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="18 15 12 9 6 15" />
+          </svg>
+        </button>
+        <button
+          className={`scroll-float-btn ${showScrollBottom ? 'visible' : ''}`}
+          onClick={scrollToBottom}
+          title="回到底部"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+      </div>
+
+      {/* 使用普通的 div 包裹 InputBar，用以被 ResizeObserver 实时监控其高度 */}
+      <div ref={inputBarRef} style={{ width: '100%' }}>
+        <InputBar
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          selectedModel={selectedModel}
+          setSelectedModel={setSelectedModel}
+          isStreaming={isStreaming}
+          pendingInterrupt={pendingInterrupt}
+          currentSessionID={currentSessionID}
+          onSubmit={handleSubmit}
+          onCancelChat={onCancelChat}
+        />
+      </div>
     </main>
   );
 }

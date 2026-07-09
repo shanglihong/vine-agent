@@ -59,3 +59,13 @@ export async function cancelSessionChat(sessionId: string): Promise<void> {
     throw new Error(`Failed to cancel session chat: status ${res.status}`);
   }
 }
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  const res = await fetch(`/api/sessions/${sessionId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to delete session: status ${res.status}`);
+  }
+}
+

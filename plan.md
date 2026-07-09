@@ -20,8 +20,8 @@
 #### 2. 对话生成主动中断与恢复
 *   **目标**：支持在流式生成中，用户能够随时手动取消（Cancel/Abort）当前生成，并能够从截断位置继续（Continue）生成后续文本。
 *   **具体任务**：
-    - [ ] **主动取消**：提供 Abort 接口，接收客户端取消请求，并通过 cancel context 信号中止大模型的 Stream 生成。同时将已生成的部分文本包装后写入 [session.go](domain/memory/session/session.go) 消息流中。
-    - [ ] **断点继续**：在 API 接口中提供 `Continue` 生成接口，加载最后一个截断的 Assistant 消息，自动补齐剩余内容。
+    - [x] **主动取消**：提供 Abort 接口，接收客户端取消请求，并通过 cancel context 信号中止大模型的 Stream 生成。同时将已生成的部分文本包装后写入 [session.go](domain/memory/session/session.go) 消息流中。
+    - [x] **断点继续**：在 API 接口中提供 `Continue` 生成接口，加载最后一个截断的 Assistant 消息，自动补齐剩余内容。
 
 #### 3. Session 管理强化
 *   **目标**：完善 Session 的深度管理。

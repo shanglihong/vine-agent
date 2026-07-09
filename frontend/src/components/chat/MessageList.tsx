@@ -178,8 +178,8 @@ export default function MessageList({
 
         const isUser = m.role === 'user';
         const isNextInterrupted = !isUser && idx < messages.length - 1 && messages[idx + 1].role === 'interrupted';
-        // 是否展开推理日志，默认展开。若在该 map 节点被手动置为 false，则折叠。
-        const isReasoningExpanded = expandedReasoning[idx] !== false;
+        // 无论是正在流式还是历史消息，所有思维推理卡片默认皆保持收起折叠，唯有主动点击展开时才为 true
+        const isReasoningExpanded = expandedReasoning[idx] === true;
 
         return (
           <div key={idx} className={`message-wrapper ${isUser ? 'user' : 'assistant'} ${isStreaming && idx === messages.length - 1 ? 'streaming' : ''}`}>
@@ -243,7 +243,7 @@ export default function MessageList({
                       </span>
                     )}
                   </div>
-                  {isReasoningExpanded && (
+                  <div className={`reasoning-content-wrapper ${isReasoningExpanded ? 'expanded' : 'collapsed'}`}>
                     <div className="reasoning-content">
                       {/* 按 timeline 顺序渲染：推理文本 + 工具步骤卡片 */}
                       {m.timeline && m.timeline.length > 0 ? (
@@ -327,7 +327,7 @@ export default function MessageList({
                         )
                       )}
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
               {/* 主答复文本 */}

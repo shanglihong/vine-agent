@@ -103,6 +103,7 @@ func (h *APIHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/sessions", h.ListSessions)
 	mux.HandleFunc("POST /api/sessions", h.CreateSession)
 	mux.HandleFunc("GET /api/sessions/{id}/messages", h.GetSessionMessages)
+	mux.HandleFunc("DELETE /api/sessions/{id}", h.DeleteSession)
 	mux.HandleFunc("POST /api/sessions/{id}/chat", h.Chat)
 	mux.HandleFunc("POST /api/sessions/{id}/confirm", h.Confirm)
 	mux.HandleFunc("POST /api/sessions/{id}/cancel", h.Cancel)

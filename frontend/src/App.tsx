@@ -3,13 +3,15 @@ import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import MemoryPanel from './components/MemoryPanel';
 import { UserInfo } from './types';
-import { fetchUserInfo, createSession } from './api';
+import { fetchUserInfo, createSession, deleteSession } from './api';
 import { useSession } from './hooks/useSession';
 import { useProfile } from './hooks/useProfile';
 import { useChat } from './hooks/useChat';
+import ConfirmModal from './components/ConfirmModal';
 
 export default function App() {
   const [currentSessionID, setCurrentSessionID] = useState<string>('');
+  const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [userID, setUserID] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('deepseek-v4-flash');
@@ -27,6 +29,7 @@ export default function App() {
 
   const {
     messages,
+    setMessages,
     isStreaming,
     pendingInterrupt,
     setPendingInterrupt,
@@ -139,6 +142,48 @@ export default function App() {
     }
   };
 
+  // 4. 删除指定会话
+  const handleDeleteSession = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isStreaming) {
+      alert('正在生成中，无法删除会话');
+      return;
+    }
+    setSessionToDelete(id);
+  };
+
+  const confirmDeleteSession = async () => {
+    if (!sessionToDelete) return;
+    const id = sessionToDelete;
+    setSessionToDelete(null);
+    try {
+      await deleteSession(id);
+      
+      let nextActiveId = currentSessionID;
+      if (id === currentSessionID) {
+        const remaining = sessions.filter((s) => s.id !== id);
+        if (remaining.length > 0) {
+          nextActiveId = remaining[0].id;
+        } else {
+          nextActiveId = '';
+        }
+      }
+      
+      await loadSessions(nextActiveId);
+      
+      if (nextActiveId) {
+        selectSession(nextActiveId);
+      } else {
+        setCurrentSessionID('');
+        setPendingInterrupt(null);
+        setMessages([]);
+      }
+    } catch (err: any) {
+      alert('删除会话失败: ' + err.message);
+      console.error('删除会话失败:', err);
+    }
+  };
+
   return (
     <div className="portal-container">
       <Sidebar
@@ -152,6 +197,7 @@ export default function App() {
         onSelectSession={selectSession}
         onCreateNewSession={createNewSession}
         onToggleTheme={toggleTheme}
+        onDeleteSession={handleDeleteSession}
       />
       <ChatArea
         messages={messages}
@@ -176,6 +222,15 @@ export default function App() {
         isEvolving={isEvolving}
         currentSessionID={currentSessionID}
         onEvolveProfile={() => evolveProfile(currentSessionID)}
+      />
+      <ConfirmModal
+        isOpen={sessionToDelete !== null}
+        title="删除会话"
+        message="此操作将永久清除该会话的所有历史消息。"
+        confirmText="删除"
+        cancelText="取消"
+        onConfirm={confirmDeleteSession}
+        onCancel={() => setSessionToDelete(null)}
       />
     </div>
   );
