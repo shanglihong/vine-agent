@@ -29,6 +29,12 @@
     - [ ] **级联彻底删除**：修改 [sqlite/session.go](infra/persistence/sqlite/session.go)，在删除 Session 时，物理清理 `messages` 数据，并同步执行 `messages_fts` 检索虚拟表的级联删除，防止产生数据垃圾。
     - [x] **标题自动生成**：引入后台异步任务，在会话进行到前两轮后，调用大语言模型（如 DeepSeek）从前两轮对话中提炼精炼的主题，调用 `session.go` 的 API 自动更新 Session Title。
 
+#### 4. 个人偏好集成
+*   **具体任务**：
+    - [ ] **api接口拆分**：个人偏好的增删改查功能增加
+    - [ ] **样式改良**：使用和网络搜索结果展示一样的卡片
+    - [ ] **多session聚合记忆演进**
+
 ---
 
 ### 🟡 P1: 核心能力扩展（高优先级，中期计划）
@@ -36,8 +42,9 @@
 #### 1. 常用工具拓展与动态 Registry 机制
 *   **目标**：让大模型具备在限定范围内读取本地文件与进行网页检索的能力。
 *   **具体任务**：
+    - [ ] **BE FE 删除mock工具**
     - [ ] **本地文件工具**：在 [infra/tools](infra/tools)（参考 [doc/tool.md](doc/tool.md)）中实现 `ReadFilesTool`, `WriteFileTool`, `ListDirTool`。
-    - [ ] **Web 检索工具**：实现网页爬取与信息搜集工具，用于获取外部最新资讯。
+    - [x] **Web 检索工具**：实现网页爬取与信息搜集工具，用于获取外部最新资讯。
     - [ ] **动态 Registry 注册表**：在 `domain/tool` 引入 `Registry` 服务，支持按照 Project 级别的元配置动态注入和启用所需的工具集合。
 
 #### 2. 事件驱动解耦异步任务

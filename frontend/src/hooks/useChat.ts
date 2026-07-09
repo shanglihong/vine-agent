@@ -122,7 +122,7 @@ export function useChat({ userID, selectedModel, loadSessions, evolveProfile }: 
     });
     streamingMsgRef.current = initialAiMsg;
 
-    const activeTools: string[] = ['get_weather', 'get_current_city'];
+    const activeTools: string[] = [];
     if (webSearchEnabled) {
       activeTools.push('web_search', 'fetch_webpage');
     }

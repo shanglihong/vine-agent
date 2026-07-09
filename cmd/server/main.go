@@ -191,24 +191,7 @@ func (m *mockChatModel) Stream(ctx context.Context, messages []message.Message, 
 			return
 		}
 
-		// 4. 检查是否触发一般操作 (如 "天气" 接口)
-		if strings.Contains(userText, "天气") {
-			ch <- &message.StreamMessage{Type: message.StreamMessageReasoningDelta, Content: "▶ 识别到需要获取天气指标。路由至外部工具 [get_weather]...\n"}
-			time.Sleep(300 * time.Millisecond)
 
-			ch <- &message.StreamMessage{
-				Type: message.StreamMessageToolCall,
-				ToolCall: &message.ToolCall{
-					ID:   "call_weather_mock_" + fmt.Sprintf("%d", time.Now().Unix()),
-					Type: "function",
-					Function: message.FunctionCall{
-						Name:      "get_weather",
-						Arguments: `{"location":"杭州"}`,
-					},
-				},
-			}
-			return
-		}
 
 		// 4.1 检查是否触发 Web 检索
 		if strings.Contains(userText, "搜索") || strings.Contains(userText, "查找") || strings.Contains(userText, "检索") {
