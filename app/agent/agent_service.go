@@ -105,12 +105,21 @@ func (s *agentService) acceptUserMessages(ctx context.Context, messages []messag
 	sessionID, _ := GetSessionID(ctx)
 	sess, err := s.sessionSvc.Get(ctx, sessionID)
 	if err != nil {
-		sess = session.NewSession(sessionID, GetUserID(ctx), nil)
+		if errors.Is(err, session.ErrSessionNotFound) {
+			sess = session.NewSession(sessionID, GetUserID(ctx), nil)
+		} else {
+			return nil, err
+		}
 	}
 
 	// 如果处于挂起确认状态，则执行自动取消逻辑
 	if sess.IsPendingConfirmation() {
 		sess.CancelPendingConfirmations()
+	}
+
+	// 如果会话还没有名字且有新消息，将第一条消息内容设为名字
+	if sess.Name == "" && len(messages) > 0 {
+		sess.Name = messages[0].Content
 	}
 
 	sess.Messages = append(sess.Messages, messages...)

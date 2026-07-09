@@ -70,6 +70,16 @@ func (s *sessionService) List(ctx context.Context, userID string) ([]*Session, e
 	return s.persist.List(ctx, userID)
 }
 
+// Rename 重命名指定的会话并使缓存失效
+func (s *sessionService) Rename(ctx context.Context, id string, name string) error {
+	sess, err := s.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	sess.Name = name
+	return s.Save(ctx, sess)
+}
+
 // cloneSession 实现 Session 结构体的并发安全深拷贝
 func cloneSession(s *Session) *Session {
 	if s == nil {
@@ -78,6 +88,7 @@ func cloneSession(s *Session) *Session {
 	cloned := &Session{
 		ID:        s.ID,
 		UserID:    s.UserID,
+		Name:      s.Name,
 		CreatedAt: s.CreatedAt,
 		UpdatedAt: s.UpdatedAt,
 	}

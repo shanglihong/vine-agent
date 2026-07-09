@@ -35,4 +35,7 @@ type SessionService interface {
 
 	// List 从物理持久化中拉取用户会话列表（不携带冗余的历史消息详情），此方法不走缓存
 	List(ctx context.Context, userID string) ([]*Session, error)
+
+	// Rename 重命名指定的会话并使缓存失效
+	Rename(ctx context.Context, id string, name string) error
 }

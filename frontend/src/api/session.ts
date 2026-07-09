@@ -69,3 +69,14 @@ export async function deleteSession(sessionId: string): Promise<void> {
   }
 }
 
+export async function renameSession(sessionId: string, name: string): Promise<void> {
+  const res = await fetch(`/api/sessions/${sessionId}/rename`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to rename session: status ${res.status}`);
+  }
+}
+

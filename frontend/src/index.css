@@ -359,6 +359,54 @@ body {
   display: flex;
 }
 
+.session-rename-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+}
+
+.session-rename-btn:hover {
+  color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+}
+
+.session-item:hover .session-rename-btn {
+  display: flex;
+}
+
+.session-rename-input {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: 14px;
+  font-family: inherit;
+  padding: 2px 6px;
+  outline: none;
+  min-width: 0;
+  width: 100%;
+  transition: all 0.15s ease-in-out;
+}
+
+.dark .session-rename-input {
+  background: #202021;
+  border-color: #3e3e3f;
+}
+
+.session-rename-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 20%, transparent);
+}
+
 .session-item:hover .session-time {
   display: none;
 }
@@ -2279,4 +2327,39 @@ body {
 
 .scroll-float-btn:active {
   transform: translateY(0) scale(0.95);
+}
+
+.global-tooltip {
+  background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--text-main);
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  font-size: 11.5px;
+  font-family: var(--font-sans);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  pointer-events: none;
+  white-space: pre-wrap;
+  max-width: 280px;
+  animation: tooltipFadeIn 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10000;
+}
+
+.dark .global-tooltip {
+  background: rgba(30, 30, 31, 0.9);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translate(-2px, -2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translate(0, 0);
+  }
 }

@@ -7,6 +7,7 @@ import InputBar from './chat/InputBar';
 interface ChatAreaProps {
   messages: Message[];
   currentSessionID: string;
+  currentSessionName?: string;
   isStreaming: boolean;
   pendingInterrupt: {
     session_id: string;
@@ -23,11 +24,15 @@ interface ChatAreaProps {
   isMemoryCollapsed: boolean;
   setIsMemoryCollapsed: (collapsed: boolean) => void;
   username?: string;
+  onShowTooltip: (text: string, e: React.MouseEvent) => void;
+  onMoveTooltip: (e: React.MouseEvent) => void;
+  onHideTooltip: () => void;
 }
 
 export default function ChatArea({
   messages,
   currentSessionID,
+  currentSessionName,
   isStreaming,
   pendingInterrupt,
   selectedModel,
@@ -41,6 +46,9 @@ export default function ChatArea({
   isMemoryCollapsed,
   setIsMemoryCollapsed,
   username,
+  onShowTooltip,
+  onMoveTooltip,
+  onHideTooltip,
 }: ChatAreaProps) {
   const [inputValue, setInputValue] = useState<string>('');
   const messageEndRef = useRef<HTMLDivElement | null>(null);
@@ -162,20 +170,67 @@ export default function ChatArea({
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
 
-          {/* 会话 ID 标题 */}
-          <h2
-            style={{
-              fontSize: '13.5px',
-              fontWeight: 500,
-              color: 'var(--text-main)',
-              margin: 0,
-              lineHeight: 1.2,
-              letterSpacing: '-0.1px',
-              fontFamily: 'var(--font-sans)',
-            }}
-          >
-            {currentSessionID || 'No active session'}
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', minWidth: 0 }}>
+            {/* 会话 Name 标题 */}
+            <h2
+              style={{
+                fontSize: '13.5px',
+                fontWeight: 600,
+                color: 'var(--text-main)',
+                margin: 0,
+                lineHeight: 1.2,
+                letterSpacing: '-0.1px',
+                fontFamily: 'var(--font-sans)',
+                display: 'inline-block',
+                textOverflow: 'ellipsis',
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                maxWidth: '180px',
+                verticalAlign: 'bottom',
+                minWidth: 0
+              }}
+              onMouseEnter={(e) => {
+                const isTruncated = e.currentTarget.scrollWidth > e.currentTarget.clientWidth;
+                if (isTruncated) {
+                  onShowTooltip(currentSessionName || currentSessionID || 'No active session', e);
+                }
+              }}
+              onMouseMove={onMoveTooltip}
+              onMouseLeave={onHideTooltip}
+            >
+              {currentSessionName || currentSessionID || 'No active session'}
+            </h2>
+
+            {/* 如果有 Name 且与 ID 不同，我们不突出地展示 ID */}
+            {currentSessionName && currentSessionName !== currentSessionID && (
+              <span
+                style={{
+                  fontSize: '10.5px',
+                  color: 'var(--text-muted)',
+                  fontWeight: 400,
+                  fontFamily: 'var(--font-mono, monospace)',
+                  opacity: 0.6,
+                  display: 'inline-block',
+                  textOverflow: 'ellipsis',
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                  maxWidth: '100px',
+                  verticalAlign: 'bottom',
+                  minWidth: 0
+                }}
+                onMouseEnter={(e) => {
+                  const isTruncated = e.currentTarget.scrollWidth > e.currentTarget.clientWidth;
+                  if (isTruncated) {
+                    onShowTooltip(currentSessionID, e);
+                  }
+                }}
+                onMouseMove={onMoveTooltip}
+                onMouseLeave={onHideTooltip}
+              >
+                {currentSessionID}
+              </span>
+            )}
+          </div>
 
           {/* 面包屑斜杠分隔符 */}
           <span style={{ fontSize: '11px', color: 'var(--border-color)', margin: '0 2px', userSelect: 'none' }}>/</span>

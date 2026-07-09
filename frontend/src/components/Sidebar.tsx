@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Session, UserInfo } from '../types';
 
 function formatRelativeTime(dateStr: string): string {
@@ -32,6 +33,10 @@ interface SidebarProps {
   onCreateNewSession: () => void;
   onToggleTheme: () => void;
   onDeleteSession: (id: string, e: React.MouseEvent) => void;
+  onRenameSession: (id: string, newName: string) => Promise<void>;
+  onShowTooltip: (text: string, e: React.MouseEvent) => void;
+  onMoveTooltip: (e: React.MouseEvent) => void;
+  onHideTooltip: () => void;
 }
 
 export default function Sidebar({
@@ -46,7 +51,41 @@ export default function Sidebar({
   onCreateNewSession,
   onToggleTheme,
   onDeleteSession,
+  onRenameSession,
+  onShowTooltip,
+  onMoveTooltip,
+  onHideTooltip,
 }: SidebarProps) {
+  const [editingSessionID, setEditingSessionID] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState<string>('');
+
+  const handleStartRename = (id: string, currentName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingSessionID(id);
+    setEditingName(currentName);
+  };
+
+  const handleSaveRename = async (id: string) => {
+    const trimmed = editingName.trim();
+    if (!trimmed) {
+      setEditingSessionID(null);
+      return;
+    }
+    try {
+      await onRenameSession(id, trimmed);
+    } finally {
+      setEditingSessionID(null);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, id: string) => {
+    if (e.key === 'Enter') {
+      handleSaveRename(id);
+    } else if (e.key === 'Escape') {
+      setEditingSessionID(null);
+    }
+  };
+
   return (
     <aside className="sidebar">
       {/* 桌面端 macOS 窗口三色圆点控制区 */}
@@ -119,11 +158,61 @@ export default function Sidebar({
             className={`session-item ${currentSessionID === s.id ? 'active' : ''}`}
             onClick={() => onSelectSession(s.id)}
           >
-            <div className="session-name" style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{s.id}</span>
-            </div>
+            {editingSessionID === s.id ? (
+              <input
+                type="text"
+                className="session-rename-input"
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+                onBlur={() => handleSaveRename(s.id)}
+                onKeyDown={(e) => handleKeyDown(e, s.id)}
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <div
+                className="session-name"
+                style={{ display: 'flex', alignItems: 'center' }}
+                onDoubleClick={(e) => handleStartRename(s.id, s.name || s.id, e)}
+              >
+                <span
+                  style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}
+                  onMouseEnter={(e) => {
+                    const isTruncated = e.currentTarget.scrollWidth > e.currentTarget.clientWidth;
+                    if (isTruncated) {
+                      onShowTooltip(s.name || s.id, e);
+                    }
+                  }}
+                  onMouseMove={onMoveTooltip}
+                  onMouseLeave={onHideTooltip}
+                >
+                  {s.name || s.id}
+                </span>
+              </div>
+            )}
             <div className="session-meta">
               <span className="session-time">{formatRelativeTime(s.updated_at)}</span>
+              {editingSessionID !== s.id && (
+                <button
+                  className="session-rename-btn"
+                  title="Rename session"
+                  onClick={(e) => handleStartRename(s.id, s.name || s.id, e)}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="12"
+                    height="12"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                  </svg>
+                </button>
+              )}
               <button
                 className="session-delete-btn"
                 title="Delete session"

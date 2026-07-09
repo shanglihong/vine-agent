@@ -22,6 +22,7 @@ func buildSession(id, userID string) *session.Session {
 	return &session.Session{
 		ID:        id,
 		UserID:    userID,
+		Name:      "session-name-" + id,
 		CreatedAt: now,
 		UpdatedAt: now,
 		Metadata:  map[string]string{"env": "test"},
@@ -52,6 +53,9 @@ func TestSessionStore_Save_Create(t *testing.T) {
 	}
 	if got.UserID != sess.UserID {
 		t.Errorf("UserID: want %q, got %q", sess.UserID, got.UserID)
+	}
+	if got.Name != sess.Name {
+		t.Errorf("Name: want %q, got %q", sess.Name, got.Name)
 	}
 	if got.Metadata["env"] != "test" {
 		t.Errorf("Metadata[env]: want %q, got %q", "test", got.Metadata["env"])

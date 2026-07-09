@@ -186,3 +186,40 @@ func TestSessionService_List(t *testing.T) {
 		assert.Equal(t, expectedErr, err)
 	})
 }
+
+func TestSessionService_Rename(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRepo := mock.NewMockSessionRepository(ctrl)
+	service := session.NewSessionService(mockRepo)
+	ctx := context.Background()
+
+	t.Run("successful rename", func(t *testing.T) {
+		sess := &session.Session{
+			ID:     "session-rename",
+			UserID: "user-1",
+			Name:   "old-name",
+		}
+
+		// 1. 模拟首次 Get 从物理存储读取
+		mockRepo.EXPECT().Get(ctx, sess.ID).Return(sess, nil).Times(1)
+
+		// 2. 模拟物理保存（包含新名字）
+		mockRepo.EXPECT().Save(ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, s *session.Session) error {
+			assert.Equal(t, "new-name", s.Name)
+			return nil
+		}).Times(1)
+
+		err := service.Rename(ctx, sess.ID, "new-name")
+		require.NoError(t, err)
+	})
+
+	t.Run("rename get error", func(t *testing.T) {
+		expectedErr := errors.New("db get error")
+		mockRepo.EXPECT().Get(ctx, "session-rename-fail").Return(nil, expectedErr).Times(1)
+
+		err := service.Rename(ctx, "session-rename-fail", "new-name")
+		assert.Equal(t, expectedErr, err)
+	})
+}

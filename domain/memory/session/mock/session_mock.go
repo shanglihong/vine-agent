@@ -160,6 +160,20 @@ func (mr *MockSessionServiceMockRecorder) List(ctx, userID interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockSessionService)(nil).List), ctx, userID)
 }
 
+// Rename mocks base method.
+func (m *MockSessionService) Rename(ctx context.Context, id, name string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Rename", ctx, id, name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Rename indicates an expected call of Rename.
+func (mr *MockSessionServiceMockRecorder) Rename(ctx, id, name interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Rename", reflect.TypeOf((*MockSessionService)(nil).Rename), ctx, id, name)
+}
+
 // Save mocks base method.
 func (m *MockSessionService) Save(ctx context.Context, sess *session.Session) error {
 	m.ctrl.T.Helper()

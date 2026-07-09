@@ -35,6 +35,7 @@ func (h *APIHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 	type sessResp struct {
 		ID        string    `json:"id"`
 		UserID    string    `json:"user_id"`
+		Name      string    `json:"name"`
 		UpdatedAt time.Time `json:"updated_at"`
 		Status    string    `json:"status,omitempty"`
 	}
@@ -47,6 +48,7 @@ func (h *APIHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 		list = append(list, sessResp{
 			ID:        s.ID,
 			UserID:    s.UserID,
+			Name:      s.Name,
 			UpdatedAt: s.UpdatedAt,
 			Status:    status,
 		})
@@ -106,6 +108,7 @@ func (h *APIHandler) GetSessionMessages(w http.ResponseWriter, r *http.Request) 
 	h.respondJSON(w, http.StatusOK, map[string]any{
 		"session_id": sess.ID,
 		"user_id":    sess.UserID,
+		"name":       sess.Name,
 		"messages":   sess.Messages,
 		"status":     sess.Metadata["status"],
 	})
@@ -373,5 +376,42 @@ func (h *APIHandler) DeleteSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.respondJSON(w, http.StatusOK, map[string]string{"session_id": sessionID, "status": "deleted"})
+}
+
+// 8. POST /api/sessions/{id}/rename
+func (h *APIHandler) RenameSession(w http.ResponseWriter, r *http.Request) {
+	if h.setCORS(w, r) {
+		return
+	}
+	sessionID := r.PathValue("id")
+	if sessionID == "" {
+		h.respondError(w, http.StatusBadRequest, "missing session_id in path")
+		return
+	}
+
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Name == "" {
+		h.respondError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	err := h.sessionSvc.Rename(r.Context(), sessionID, req.Name)
+	if err != nil {
+		if errors.Is(err, session.ErrSessionNotFound) {
+			h.respondError(w, http.StatusNotFound, "session not found")
+			return
+		}
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]string{"session_id": sessionID, "status": "renamed", "name": req.Name})
 }
 

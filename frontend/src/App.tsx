@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import MemoryPanel from './components/MemoryPanel';
 import { UserInfo } from './types';
-import { fetchUserInfo, createSession, deleteSession } from './api';
+import { fetchUserInfo, createSession, deleteSession, renameSession } from './api';
 import { useSession } from './hooks/useSession';
 import { useProfile } from './hooks/useProfile';
 import { useChat } from './hooks/useChat';
@@ -21,6 +21,37 @@ export default function App() {
 
   // 状态：长期记忆画像面板折叠状态，默认折叠
   const [isMemoryCollapsed, setIsMemoryCollapsed] = useState<boolean>(true);
+
+  // 全局 Tooltip 状态
+  const [tooltipText, setTooltipText] = useState<string>('');
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const tooltipTimeoutRef = useRef<any>(null);
+
+  const handleShowTooltip = (text: string, e: React.MouseEvent) => {
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current);
+    }
+    const x = e.clientX;
+    const y = e.clientY;
+    tooltipTimeoutRef.current = setTimeout(() => {
+      setTooltipText(text);
+      setTooltipPos({ x, y });
+    }, 800);
+  };
+
+  const handleMoveTooltip = (e: React.MouseEvent) => {
+    const x = e.clientX;
+    const y = e.clientY;
+    setTooltipPos({ x, y });
+  };
+
+  const handleHideTooltip = () => {
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current);
+      tooltipTimeoutRef.current = null;
+    }
+    setTooltipText('');
+  };
 
   // ── Hooks ──
   const { userProfile, isEvolving, loadProfile, evolveProfile } = useProfile(userID);
@@ -184,6 +215,16 @@ export default function App() {
     }
   };
 
+  const handleRenameSession = async (id: string, newName: string) => {
+    try {
+      await renameSession(id, newName);
+      await loadSessions(currentSessionID);
+    } catch (err: any) {
+      alert('重命名会话失败: ' + err.message);
+      console.error('重命名会话失败:', err);
+    }
+  };
+
   return (
     <div className="portal-container">
       <Sidebar
@@ -198,10 +239,15 @@ export default function App() {
         onCreateNewSession={createNewSession}
         onToggleTheme={toggleTheme}
         onDeleteSession={handleDeleteSession}
+        onRenameSession={handleRenameSession}
+        onShowTooltip={handleShowTooltip}
+        onMoveTooltip={handleMoveTooltip}
+        onHideTooltip={handleHideTooltip}
       />
       <ChatArea
         messages={messages}
         currentSessionID={currentSessionID}
+        currentSessionName={sessions.find(s => s.id === currentSessionID)?.name}
         isStreaming={isStreaming}
         pendingInterrupt={pendingInterrupt}
         selectedModel={selectedModel}
@@ -215,6 +261,9 @@ export default function App() {
         isMemoryCollapsed={isMemoryCollapsed}
         setIsMemoryCollapsed={setIsMemoryCollapsed}
         username={userInfo?.username}
+        onShowTooltip={handleShowTooltip}
+        onMoveTooltip={handleMoveTooltip}
+        onHideTooltip={handleHideTooltip}
       />
       <MemoryPanel
         userProfile={userProfile}
@@ -232,6 +281,20 @@ export default function App() {
         onConfirm={confirmDeleteSession}
         onCancel={() => setSessionToDelete(null)}
       />
+      {tooltipText && (
+        <div
+          className="global-tooltip"
+          style={{
+            position: 'fixed',
+            left: tooltipPos.x + 12,
+            top: tooltipPos.y + 12,
+            pointerEvents: 'none',
+            zIndex: 10000,
+          }}
+        >
+          {tooltipText}
+        </div>
+      )}
     </div>
   );
 }

@@ -23,13 +23,14 @@ const (
 type Session struct {
 	ID        string            `json:"id"`
 	UserID    string            `json:"user_id"`
+	Name      string            `json:"name"`
 	CreatedAt time.Time         `json:"created_at"`
 	UpdatedAt time.Time         `json:"updated_at"`
 	Metadata  map[string]string `json:"metadata"`
 	Messages  []message.Message `json:"messages"`
 }
 
-// NewSession 创建一个新的会话实例。如果传入的 id 为空，会内置自动生成一个基于时间戳的唯一会话 ID
+// NewSession 创建一个新的会话实例。如果传入 the id 为空，会内置自动生成一个基于时间戳的唯一会话 ID
 func NewSession(id, userID string, metadata map[string]string) *Session {
 	if id == "" {
 		id = fmt.Sprintf("sess_%d", time.Now().UnixNano())
@@ -41,6 +42,7 @@ func NewSession(id, userID string, metadata map[string]string) *Session {
 	return &Session{
 		ID:        id,
 		UserID:    userID,
+		Name:      "",
 		CreatedAt: now,
 		UpdatedAt: now,
 		Metadata:  metadata,

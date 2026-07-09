@@ -54,10 +54,11 @@ func (r *SessionStore) Save(ctx context.Context, sess *session.Session) error {
 	defer tx.Rollback()
 
 	query := `
-	INSERT INTO sessions (id, user_id, messages, metadata, created_at, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?)
+	INSERT INTO sessions (id, user_id, name, messages, metadata, created_at, updated_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET
 		user_id = excluded.user_id,
+		name = excluded.name,
 		messages = excluded.messages,
 		metadata = excluded.metadata,
 		updated_at = excluded.updated_at
@@ -65,6 +66,7 @@ func (r *SessionStore) Save(ctx context.Context, sess *session.Session) error {
 	_, err = tx.ExecContext(ctx, query,
 		sess.ID,
 		sess.UserID,
+		sess.Name,
 		string(messagesJSON),
 		string(metadataJSON),
 		sess.CreatedAt,
@@ -83,19 +85,20 @@ func (r *SessionStore) Save(ctx context.Context, sess *session.Session) error {
 
 // Get 根据 ID 获取 Session 领域对象
 func (r *SessionStore) Get(ctx context.Context, id string) (*session.Session, error) {
-	query := `SELECT id, user_id, messages, metadata, created_at, updated_at FROM sessions WHERE id = ?`
+	query := `SELECT id, user_id, name, messages, metadata, created_at, updated_at FROM sessions WHERE id = ?`
 	row := r.db.QueryRowContext(ctx, query, id)
 
 	var (
 		sessionID    string
 		userID       string
+		name         string
 		messagesText string
 		metadataText string
 		createdAt    time.Time
 		updatedAt    time.Time
 	)
 
-	err := row.Scan(&sessionID, &userID, &messagesText, &metadataText, &createdAt, &updatedAt)
+	err := row.Scan(&sessionID, &userID, &name, &messagesText, &metadataText, &createdAt, &updatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, session.ErrSessionNotFound
@@ -116,6 +119,7 @@ func (r *SessionStore) Get(ctx context.Context, id string) (*session.Session, er
 	return &session.Session{
 		ID:        sessionID,
 		UserID:    userID,
+		Name:      name,
 		Messages:  messages,
 		Metadata:  metadata,
 		CreatedAt: createdAt,
@@ -145,7 +149,7 @@ func (r *SessionStore) Delete(ctx context.Context, id string) error {
 
 // List 根据 UserID 列出该用户的所有会话，列表不携带历史消息详情
 func (r *SessionStore) List(ctx context.Context, userID string) ([]*session.Session, error) {
-	query := `SELECT id, user_id, metadata, created_at, updated_at FROM sessions WHERE user_id = ? ORDER BY updated_at DESC`
+	query := `SELECT id, user_id, name, metadata, created_at, updated_at FROM sessions WHERE user_id = ? ORDER BY updated_at DESC`
 	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query session list for user %s: %w", userID, err)
@@ -157,12 +161,13 @@ func (r *SessionStore) List(ctx context.Context, userID string) ([]*session.Sess
 		var (
 			sessionID    string
 			uID          string
+			name         string
 			metadataText string
 			createdAt    time.Time
 			updatedAt    time.Time
 		)
 
-		err := rows.Scan(&sessionID, &uID, &metadataText, &createdAt, &updatedAt)
+		err := rows.Scan(&sessionID, &uID, &name, &metadataText, &createdAt, &updatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan session row: %w", err)
 		}
@@ -175,6 +180,7 @@ func (r *SessionStore) List(ctx context.Context, userID string) ([]*session.Sess
 		sessions = append(sessions, &session.Session{
 			ID:        sessionID,
 			UserID:    uID,
+			Name:      name,
 			Metadata:  metadata,
 			CreatedAt: createdAt,
 			UpdatedAt: updatedAt,

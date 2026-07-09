@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
+    name TEXT DEFAULT '',
     messages TEXT NOT NULL,
     metadata TEXT NOT NULL,
     created_at DATETIME NOT NULL,
