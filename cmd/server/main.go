@@ -28,6 +28,7 @@ import (
 	"vine-agent/infra/extractor"
 	"vine-agent/infra/persistence/file"
 	"vine-agent/infra/persistence/sqlite"
+	"vine-agent/infra/scheduler"
 	"vine-agent/infra/tools"
 )
 
@@ -85,10 +86,17 @@ func main() {
 	evolutionAppSvc := memory_app.NewEvolutionAppService(sessionSvc, profileRepo, evolutionSvc)
 	userAppSvc := user_app.NewUserAppService(userDomainSvc)
 
+	// 启动统一的定时任务调度器 (使用 cron 统一管理)
+	cronScheduler := scheduler.NewCronScheduler(logger)
+	err = scheduler.RegisterEvolutionJob(cronScheduler, "*/1 * * * *", sessionSvc, evolutionAppSvc)
+	if err != nil {
+		logger.Fatalf("注册记忆进化定时任务失败: %v", err)
+	}
+	cronScheduler.Start()
+	defer cronScheduler.Stop()
+
 	// 6. 构造 API 控制器与注册路由
 	appTools := []tool.Tool{
-		tools.NewWeatherTool(),
-		tools.NewCurrentCityTool(),
 		tools.NewWebSearchTool(),
 		tools.NewWebCrawlTool(),
 	}

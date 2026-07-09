@@ -244,3 +244,61 @@ func TestSessionStore_List_Empty(t *testing.T) {
 		t.Errorf("want empty list, got %d", len(list))
 	}
 }
+
+func TestSessionStore_ListUpdatedSince(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	// 清空表以实现测试隔离，避免其他测试遗留的数据干扰时间范围过滤
+	if _, err := testDB.Exec("DELETE FROM sessions"); err != nil {
+		t.Fatalf("failed to clean sessions table: %v", err)
+	}
+
+	// 准备 2 个 session。1 个更新于 5 秒前，1 个更新于 15 秒前。
+	now := time.Now().Truncate(time.Second)
+	sess1 := buildSession("t1", "user-T")
+	sess1.UpdatedAt = now.Add(-5 * time.Second)
+
+	sess2 := buildSession("t2", "user-T")
+	sess2.UpdatedAt = now.Add(-15 * time.Second)
+
+	if err := store.Save(ctx, sess1); err != nil {
+		t.Fatalf("Save sess1: %v", err)
+	}
+	if err := store.Save(ctx, sess2); err != nil {
+		t.Fatalf("Save sess2: %v", err)
+	}
+
+	// 1. 查询 10 秒前以来的更新，应该只有 sess1 (t1)
+	list, err := store.ListUpdatedSince(ctx, now.Add(-10*time.Second))
+	if err != nil {
+		t.Fatalf("ListUpdatedSince: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1 session, got %d", len(list))
+	}
+	if list[0].ID != "t1" {
+		t.Errorf("expected session t1, got %s", list[0].ID)
+	}
+
+	// 2. 查询 20 秒前以来的更新，应该有 sess1 和 sess2，且按 updated_at 倒序排列（t1, t2）
+	listAll, err := store.ListUpdatedSince(ctx, now.Add(-20*time.Second))
+	if err != nil {
+		t.Fatalf("ListUpdatedSince: %v", err)
+	}
+	if len(listAll) != 2 {
+		t.Fatalf("expected 2 sessions, got %d", len(listAll))
+	}
+	if listAll[0].ID != "t1" || listAll[1].ID != "t2" {
+		t.Errorf("expected sessions order [t1, t2], got [%s, %s]", listAll[0].ID, listAll[1].ID)
+	}
+
+	// 3. 查询当前时间之后的更新，应该为空
+	listEmpty, err := store.ListUpdatedSince(ctx, now.Add(5*time.Second))
+	if err != nil {
+		t.Fatalf("ListUpdatedSince: %v", err)
+	}
+	if len(listEmpty) != 0 {
+		t.Errorf("expected 0 sessions, got %d", len(listEmpty))
+	}
+}

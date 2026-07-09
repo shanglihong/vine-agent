@@ -7,6 +7,7 @@ package mock
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 	session "vine-agent/domain/memory/session"
 
 	gomock "github.com/golang/mock/gomock"
@@ -77,6 +78,21 @@ func (m *MockSessionRepository) List(ctx context.Context, userID string) ([]*ses
 func (mr *MockSessionRepositoryMockRecorder) List(ctx, userID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockSessionRepository)(nil).List), ctx, userID)
+}
+
+// ListUpdatedSince mocks base method.
+func (m *MockSessionRepository) ListUpdatedSince(ctx context.Context, since time.Time) ([]*session.Session, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListUpdatedSince", ctx, since)
+	ret0, _ := ret[0].([]*session.Session)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListUpdatedSince indicates an expected call of ListUpdatedSince.
+func (mr *MockSessionRepositoryMockRecorder) ListUpdatedSince(ctx, since interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUpdatedSince", reflect.TypeOf((*MockSessionRepository)(nil).ListUpdatedSince), ctx, since)
 }
 
 // Save mocks base method.
@@ -158,6 +174,21 @@ func (m *MockSessionService) List(ctx context.Context, userID string) ([]*sessio
 func (mr *MockSessionServiceMockRecorder) List(ctx, userID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockSessionService)(nil).List), ctx, userID)
+}
+
+// ListUpdatedSince mocks base method.
+func (m *MockSessionService) ListUpdatedSince(ctx context.Context, since time.Time) ([]*session.Session, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListUpdatedSince", ctx, since)
+	ret0, _ := ret[0].([]*session.Session)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListUpdatedSince indicates an expected call of ListUpdatedSince.
+func (mr *MockSessionServiceMockRecorder) ListUpdatedSince(ctx, since interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUpdatedSince", reflect.TypeOf((*MockSessionService)(nil).ListUpdatedSince), ctx, since)
 }
 
 // Rename mocks base method.

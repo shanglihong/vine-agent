@@ -62,13 +62,14 @@ func ReadAndAssembleMessage(stream StreamMessageReader, callback func(*StreamMes
 	var fullReasoning string
 	var tempToolCalls []ToolCall
 
+	var recvErr error
 	for {
 		msg, err := stream.Recv()
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
+			if !errors.Is(err, io.EOF) {
+				recvErr = err
 			}
-			return nil, err
+			break
 		}
 
 		// 单个消息的回调（由外部决定如何处理，例如推送到事件总线）
@@ -93,7 +94,7 @@ func ReadAndAssembleMessage(stream StreamMessageReader, callback func(*StreamMes
 		assistantMsg.ToolCalls = tempToolCalls
 	}
 
-	return &assistantMsg, nil
+	return &assistantMsg, recvErr
 }
 
 // NewStreamToolResult 创建一个流式工具执行结果的实例指针

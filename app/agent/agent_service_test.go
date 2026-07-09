@@ -71,7 +71,7 @@ func TestAgentService_Stream_Interrupt(t *testing.T) {
 		mockSessionSvc.EXPECT().Save(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, s *session.Session) error {
 			savedSess = s
 			return nil
-		}).Times(2)
+		}).Times(1)
 
 		svc := agent.NewService(mockChat, mockSessionSvc)
 		userMsg := message.Message{Role: message.RoleUser, Content: "hello"}

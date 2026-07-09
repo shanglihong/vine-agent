@@ -194,3 +194,51 @@ func (r *SessionStore) List(ctx context.Context, userID string) ([]*session.Sess
 
 	return sessions, nil
 }
+
+// ListUpdatedSince 列出在指定时间点之后更新过的所有会话，列表不携带历史消息详情
+func (r *SessionStore) ListUpdatedSince(ctx context.Context, since time.Time) ([]*session.Session, error) {
+	query := `SELECT id, user_id, name, metadata, created_at, updated_at FROM sessions WHERE updated_at >= ? ORDER BY updated_at DESC`
+	rows, err := r.db.QueryContext(ctx, query, since)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query session list updated since %v: %w", since, err)
+	}
+	defer rows.Close()
+
+	var sessions []*session.Session
+	for rows.Next() {
+		var (
+			sessionID    string
+			uID          string
+			name         string
+			metadataText string
+			createdAt    time.Time
+			updatedAt    time.Time
+		)
+
+		err := rows.Scan(&sessionID, &uID, &name, &metadataText, &createdAt, &updatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan session row: %w", err)
+		}
+
+		var metadata map[string]string
+		if err := json.Unmarshal([]byte(metadataText), &metadata); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal metadata for session list: %w", err)
+		}
+
+		sessions = append(sessions, &session.Session{
+			ID:        sessionID,
+			UserID:    uID,
+			Name:      name,
+			Metadata:  metadata,
+			CreatedAt: createdAt,
+			UpdatedAt: updatedAt,
+			Messages:  nil, // 列表不携带详细消息列表
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error during session rows iteration: %w", err)
+	}
+
+	return sessions, nil
+}

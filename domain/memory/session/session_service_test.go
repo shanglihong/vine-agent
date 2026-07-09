@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"vine-agent/domain/memory/session"
 	"vine-agent/domain/memory/session/mock"
@@ -221,5 +222,28 @@ func TestSessionService_Rename(t *testing.T) {
 
 		err := service.Rename(ctx, "session-rename-fail", "new-name")
 		assert.Equal(t, expectedErr, err)
+	})
+}
+
+func TestSessionService_ListUpdatedSince(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRepo := mock.NewMockSessionRepository(ctrl)
+	service := session.NewSessionService(mockRepo)
+	ctx := context.Background()
+
+	t.Run("successful list updated since", func(t *testing.T) {
+		since := time.Now()
+		sessions := []*session.Session{
+			{ID: "sess-a", UserID: "user-list"},
+		}
+
+		mockRepo.EXPECT().ListUpdatedSince(ctx, since).Return(sessions, nil).Times(1)
+
+		got, err := service.ListUpdatedSince(ctx, since)
+		require.NoError(t, err)
+		assert.Len(t, got, 1)
+		assert.Equal(t, "sess-a", got[0].ID)
 	})
 }

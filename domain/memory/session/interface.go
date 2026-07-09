@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"time"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -source=interface.go -destination=./mock/session_mock.go -package=mock
@@ -20,6 +21,9 @@ type SessionRepository interface {
 
 	// List 根据 UserID 列出该用户的所有会话，列表不携带历史消息详情
 	List(ctx context.Context, userID string) ([]*Session, error)
+
+	// ListUpdatedSince 列出在特定时间点之后更新过的所有会话，列表不携带历史消息详情
+	ListUpdatedSince(ctx context.Context, since time.Time) ([]*Session, error)
 }
 
 // SessionService 定义了 Session 领域服务的核心操作契约
@@ -38,4 +42,7 @@ type SessionService interface {
 
 	// Rename 重命名指定的会话并使缓存失效
 	Rename(ctx context.Context, id string, name string) error
+
+	// ListUpdatedSince 从物理存储中列出在指定时间点之后更新过的所有会话，此方法不走缓存，列表不携带历史消息详情
+	ListUpdatedSince(ctx context.Context, since time.Time) ([]*Session, error)
 }

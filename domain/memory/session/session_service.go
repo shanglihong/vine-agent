@@ -80,6 +80,11 @@ func (s *sessionService) Rename(ctx context.Context, id string, name string) err
 	return s.Save(ctx, sess)
 }
 
+// ListUpdatedSince 从物理存储中列出在指定时间点之后更新过的所有会话，此方法不走缓存，列表不携带历史消息详情
+func (s *sessionService) ListUpdatedSince(ctx context.Context, since time.Time) ([]*Session, error) {
+	return s.persist.ListUpdatedSince(ctx, since)
+}
+
 // cloneSession 实现 Session 结构体的并发安全深拷贝
 func cloneSession(s *Session) *Session {
 	if s == nil {
