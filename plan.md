@@ -27,7 +27,7 @@
 *   **目标**：完善 Session 的深度管理。
 *   **具体任务**：
     - [ ] **级联彻底删除**：修改 [sqlite/session.go](infra/persistence/sqlite/session.go)，在删除 Session 时，物理清理 `messages` 数据，并同步执行 `messages_fts` 检索虚拟表的级联删除，防止产生数据垃圾。
-    - [ ] **标题自动生成**：引入后台异步任务，在会话进行到前两轮后，调用大语言模型（如 DeepSeek）从前两轮对话中提炼精炼的主题，调用 `session.go` 的 API 自动更新 Session Title。
+    - [x] **标题自动生成**：引入后台异步任务，在会话进行到前两轮后，调用大语言模型（如 DeepSeek）从前两轮对话中提炼精炼的主题，调用 `session.go` 的 API 自动更新 Session Title。
 
 ---
 

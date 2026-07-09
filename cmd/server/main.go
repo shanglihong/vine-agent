@@ -89,6 +89,8 @@ func main() {
 	appTools := []tool.Tool{
 		tools.NewWeatherTool(),
 		tools.NewCurrentCityTool(),
+		tools.NewWebSearchTool(),
+		tools.NewWebCrawlTool(),
 	}
 	handler := api.NewAPIHandler(agentSvc, interactionSvc, sessionSvc, profileRepo, evolutionAppSvc, userAppSvc, appTools, logger)
 	mux := http.NewServeMux()
@@ -194,6 +196,44 @@ func (m *mockChatModel) Stream(ctx context.Context, messages []message.Message, 
 					Function: message.FunctionCall{
 						Name:      "get_weather",
 						Arguments: `{"location":"杭州"}`,
+					},
+				},
+			}
+			return
+		}
+
+		// 4.1 检查是否触发 Web 检索
+		if strings.Contains(userText, "搜索") || strings.Contains(userText, "查找") || strings.Contains(userText, "检索") {
+			ch <- &message.StreamMessage{Type: message.StreamMessageReasoningDelta, Content: "▶ 识别到需要进行网络检索。路由至外部工具 [web_search]...\n"}
+			time.Sleep(300 * time.Millisecond)
+
+			ch <- &message.StreamMessage{
+				Type: message.StreamMessageToolCall,
+				ToolCall: &message.ToolCall{
+					ID:   "call_search_mock_" + fmt.Sprintf("%d", time.Now().Unix()),
+					Type: "function",
+					Function: message.FunctionCall{
+						Name:      "web_search",
+						Arguments: `{"query":"Go 1.25 新特性"}`,
+					},
+				},
+			}
+			return
+		}
+
+		// 4.2 检查是否触发 Web 爬取
+		if strings.Contains(userText, "爬取") || strings.Contains(userText, "网页") || strings.Contains(userText, "链接") {
+			ch <- &message.StreamMessage{Type: message.StreamMessageReasoningDelta, Content: "▶ 识别到需要提取网页文本。路由至外部工具 [fetch_webpage]...\n"}
+			time.Sleep(300 * time.Millisecond)
+
+			ch <- &message.StreamMessage{
+				Type: message.StreamMessageToolCall,
+				ToolCall: &message.ToolCall{
+					ID:   "call_crawl_mock_" + fmt.Sprintf("%d", time.Now().Unix()),
+					Type: "function",
+					Function: message.FunctionCall{
+						Name:      "fetch_webpage",
+						Arguments: `{"url":"https://go.dev/blog/go1.25"}`,
 					},
 				},
 			}
