@@ -58,11 +58,13 @@ func RegisterEvolutionJob(
 			return
 		}
 
-		s.logger.Printf("[EvolutionJob] 捞取到 %d 个可能需要进化的会话，开始检查增量消息...", len(sessions))
-		for _, sess := range sessions {
-			if err := evolutionApp.TriggerEvolution(ctx, sess.ID); err != nil {
-				s.logger.Printf("[EvolutionJob] 会话 %s 记忆演进失败: %v", sess.ID, err)
-			}
+		s.logger.Printf("[EvolutionJob] 捞取到 %d 个可能需要进化的会话，提取 IDs 并触发批量进化...", len(sessions))
+		sessionIDs := make([]string, len(sessions))
+		for i, sess := range sessions {
+			sessionIDs[i] = sess.ID
+		}
+		if err := evolutionApp.TriggerEvolution(ctx, sessionIDs); err != nil {
+			s.logger.Printf("[EvolutionJob] 批量触发记忆演进失败: %v", err)
 		}
 	})
 	return err

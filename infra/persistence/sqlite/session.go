@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"vine-agent/domain/memory/session"
@@ -37,11 +39,6 @@ func (r *SessionStore) Save(ctx context.Context, sess *session.Session) error {
 		return fmt.Errorf("session cannot be nil")
 	}
 
-	messagesJSON, err := json.Marshal(sess.Messages)
-	if err != nil {
-		return fmt.Errorf("failed to marshal messages for session %s: %w", sess.ID, err)
-	}
-
 	metadataJSON, err := json.Marshal(sess.Metadata)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata for session %s: %w", sess.ID, err)
@@ -52,6 +49,40 @@ func (r *SessionStore) Save(ctx context.Context, sess *session.Session) error {
 		return fmt.Errorf("failed to begin save transaction for session %s: %w", sess.ID, err)
 	}
 	defer tx.Rollback()
+
+	// 如果消息没有变动，先尝试做部分更新 UPDATE，避免传输和解析大数据量的 messages 字段
+	if !sess.IsMessagesDirty() {
+		updateQuery := `
+		UPDATE sessions SET
+			user_id = ?,
+			name = ?,
+			metadata = ?,
+			updated_at = ?
+		WHERE id = ?
+		`
+		result, err := tx.ExecContext(ctx, updateQuery,
+			sess.UserID,
+			sess.Name,
+			string(metadataJSON),
+			sess.UpdatedAt,
+			sess.ID,
+		)
+		if err == nil {
+			rows, _ := result.RowsAffected()
+			if rows > 0 {
+				if err := tx.Commit(); err != nil {
+					return fmt.Errorf("failed to commit save session transaction: %w", err)
+				}
+				sess.InitMessagesSnapshot()
+				return nil
+			}
+		}
+	}
+
+	messagesJSON, err := json.Marshal(sess.Messages)
+	if err != nil {
+		return fmt.Errorf("failed to marshal messages for session %s: %w", sess.ID, err)
+	}
 
 	query := `
 	INSERT INTO sessions (id, user_id, name, messages, metadata, created_at, updated_at)
@@ -80,6 +111,8 @@ func (r *SessionStore) Save(ctx context.Context, sess *session.Session) error {
 		return fmt.Errorf("failed to commit save session transaction: %w", err)
 	}
 
+	// 保存成功后更新快照指纹
+	sess.InitMessagesSnapshot()
 	return nil
 }
 
@@ -116,7 +149,7 @@ func (r *SessionStore) Get(ctx context.Context, id string) (*session.Session, er
 		return nil, fmt.Errorf("failed to unmarshal metadata for session %s: %w", id, err)
 	}
 
-	return &session.Session{
+	sess := &session.Session{
 		ID:        sessionID,
 		UserID:    userID,
 		Name:      name,
@@ -124,7 +157,9 @@ func (r *SessionStore) Get(ctx context.Context, id string) (*session.Session, er
 		Metadata:  metadata,
 		CreatedAt: createdAt,
 		UpdatedAt: updatedAt,
-	}, nil
+	}
+	sess.InitMessagesSnapshot()
+	return sess, nil
 }
 
 // Delete 根据 ID 删除 Session 领域对象
@@ -241,4 +276,84 @@ func (r *SessionStore) ListUpdatedSince(ctx context.Context, since time.Time) ([
 	}
 
 	return sessions, nil
+}
+
+// GetBatch 批量获取 Session 实体
+func (r *SessionStore) GetBatch(ctx context.Context, ids []string) (map[string]*session.Session, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	placeholders := make([]string, len(ids))
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(
+		`SELECT id, user_id, name, messages, metadata, created_at, updated_at FROM sessions WHERE id IN (%s)`,
+		strings.Join(placeholders, ","),
+	)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query batch sessions: %w", err)
+	}
+	defer rows.Close()
+
+	res := make(map[string]*session.Session)
+	var batchErrs []error
+
+	for rows.Next() {
+		var (
+			sessionID    string
+			userID       string
+			name         string
+			messagesText string
+			metadataText string
+			createdAt    time.Time
+			updatedAt    time.Time
+		)
+		err := rows.Scan(&sessionID, &userID, &name, &messagesText, &metadataText, &createdAt, &updatedAt)
+		if err != nil {
+			batchErrs = append(batchErrs, fmt.Errorf("failed to scan session row: %w", err))
+			continue
+		}
+
+		var messages []message.Message
+		if err := json.Unmarshal([]byte(messagesText), &messages); err != nil {
+			batchErrs = append(batchErrs, fmt.Errorf("failed to unmarshal messages for session %s: %w", sessionID, err))
+			continue
+		}
+
+		var metadata map[string]string
+		if err := json.Unmarshal([]byte(metadataText), &metadata); err != nil {
+			batchErrs = append(batchErrs, fmt.Errorf("failed to unmarshal metadata for session %s: %w", sessionID, err))
+			continue
+		}
+
+		sess := &session.Session{
+			ID:        sessionID,
+			UserID:    userID,
+			Name:      name,
+			Messages:  messages,
+			Metadata:  metadata,
+			CreatedAt: createdAt,
+			UpdatedAt: updatedAt,
+		}
+		sess.InitMessagesSnapshot()
+		res[sessionID] = sess
+	}
+
+	if err := rows.Err(); err != nil {
+		batchErrs = append(batchErrs, fmt.Errorf("rows error: %w", err))
+	}
+
+	var joinedErr error
+	if len(batchErrs) > 0 {
+		joinedErr = errors.Join(batchErrs...)
+	}
+
+	return res, joinedErr
 }

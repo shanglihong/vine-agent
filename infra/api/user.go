@@ -66,7 +66,7 @@ func (h *APIHandler) Evolve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.evolutionAppSvc.TriggerEvolution(r.Context(), sessionID)
+	err := h.evolutionAppSvc.TriggerEvolution(r.Context(), []string{sessionID})
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return

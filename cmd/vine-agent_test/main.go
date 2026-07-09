@@ -57,15 +57,15 @@ func main() {
 
 	// A. 模拟创建一个包含未演进消息的对话 Session
 	sess := session.NewSession(sessionID, userID, nil)
-	sess.Messages = append(sess.Messages, message.Message{
+	sess.AppendMessage(message.Message{
 		Role:    message.RoleUser,
 		Content: "你好！我最近正准备用 Go 语言和 DDD 架构来重构我的 Vine-Agent 智能体项目，感觉这样项目结构更加清晰！",
 	})
-	sess.Messages = append(sess.Messages, message.Message{
+	sess.AppendMessage(message.Message{
 		Role:    message.RoleAssistant,
 		Content: "你好！Go 语言和 DDD 的配合非常适合大型和复杂的 Agent 系统，它可以为你提供坚实的包解耦与业务内聚保护。我们可以一起讨论细节！",
 	})
-	sess.Messages = append(sess.Messages, message.Message{
+	sess.AppendMessage(message.Message{
 		Role:    message.RoleUser,
 		Content: "对了，我非常不喜欢吃海鲜，平时特别钟爱辣味火锅。",
 	})
@@ -84,7 +84,7 @@ func main() {
 	// 3. 渲染就近存放的 prompts/memory_extractor.md 并调用大模型进行提炼与覆盖
 	// 4. 将提炼后的偏好及事实分别存入 data/profile/ 目录下对应的两个 md 文件中
 	// 5. 更新 Session 中的已演进消息进度计数，并写回 SQLite
-	err = evolutionAppSvc.TriggerEvolution(ctx, sessionID)
+	err = evolutionAppSvc.TriggerEvolution(ctx, []string{sessionID})
 	if err != nil {
 		logger.Printf("[演示运行错误] 记忆进化失败: %v (如果您的 API Key 无效，这符合预期)\n", err)
 		logger.Println("提示：若要体验真实的大模型提炼进化，请在控制台 export DEEPSEEK_API_KEY=您的真实Key，并设置环境变量 APP_ENV=dev (启用项目本地data目录) 再次运行。")

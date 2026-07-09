@@ -24,6 +24,9 @@ type SessionRepository interface {
 
 	// ListUpdatedSince 列出在特定时间点之后更新过的所有会话，列表不携带历史消息详情
 	ListUpdatedSince(ctx context.Context, since time.Time) ([]*Session, error)
+
+	// GetBatch 批量获取 Session 实体。失败时通过 errors.Join 返回汇总错误
+	GetBatch(ctx context.Context, ids []string) (map[string]*Session, error)
 }
 
 // SessionService 定义了 Session 领域服务的核心操作契约
@@ -45,4 +48,7 @@ type SessionService interface {
 
 	// ListUpdatedSince 从物理存储中列出在指定时间点之后更新过的所有会话，此方法不走缓存，列表不携带历史消息详情
 	ListUpdatedSince(ctx context.Context, since time.Time) ([]*Session, error)
+
+	// GetBatch 批量获取 Session 实体。内部并发安全加载，失败时通过 errors.Join 返回汇总错误
+	GetBatch(ctx context.Context, ids []string) (map[string]*Session, error)
 }

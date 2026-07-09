@@ -65,6 +65,21 @@ func (mr *MockSessionRepositoryMockRecorder) Get(ctx, id interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockSessionRepository)(nil).Get), ctx, id)
 }
 
+// GetBatch mocks base method.
+func (m *MockSessionRepository) GetBatch(ctx context.Context, ids []string) (map[string]*session.Session, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBatch", ctx, ids)
+	ret0, _ := ret[0].(map[string]*session.Session)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBatch indicates an expected call of GetBatch.
+func (mr *MockSessionRepositoryMockRecorder) GetBatch(ctx, ids interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBatch", reflect.TypeOf((*MockSessionRepository)(nil).GetBatch), ctx, ids)
+}
+
 // List mocks base method.
 func (m *MockSessionRepository) List(ctx context.Context, userID string) ([]*session.Session, error) {
 	m.ctrl.T.Helper()
@@ -159,6 +174,21 @@ func (m *MockSessionService) Get(ctx context.Context, id string) (*session.Sessi
 func (mr *MockSessionServiceMockRecorder) Get(ctx, id interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockSessionService)(nil).Get), ctx, id)
+}
+
+// GetBatch mocks base method.
+func (m *MockSessionService) GetBatch(ctx context.Context, ids []string) (map[string]*session.Session, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBatch", ctx, ids)
+	ret0, _ := ret[0].(map[string]*session.Session)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBatch indicates an expected call of GetBatch.
+func (mr *MockSessionServiceMockRecorder) GetBatch(ctx, ids interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBatch", reflect.TypeOf((*MockSessionService)(nil).GetBatch), ctx, ids)
 }
 
 // List mocks base method.

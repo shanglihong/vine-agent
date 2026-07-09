@@ -127,12 +127,12 @@ func (s *interactionService) ResumeStream(ctx context.Context, confirmedToolCall
 	var newPendingConfirms []message.ToolCall
 	for _, res := range toolResults {
 		if res.Error == nil {
-			sess.Messages = append(sess.Messages, res.O)
+			sess.AppendMessage(res.O)
 		} else if _, ok := res.Error.(*ToolConfirmationRequiredError); ok {
 			newPendingConfirms = append(newPendingConfirms, res.I)
 		} else {
 			toolMsg, _ := ConvertToolErrorToMessage(res.I.ID, res.Error)
-			sess.Messages = append(sess.Messages, toolMsg)
+			sess.AppendMessage(toolMsg)
 		}
 	}
 

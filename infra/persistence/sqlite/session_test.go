@@ -75,7 +75,7 @@ func TestSessionStore_Save_Update(t *testing.T) {
 	}
 
 	// 更新消息与元数据
-	sess.Messages = append(sess.Messages, message.Message{Role: message.RoleUser, Content: "update"})
+	sess.AppendMessage(message.Message{Role: message.RoleUser, Content: "update"})
 	sess.Metadata["status"] = "updated"
 	sess.UpdatedAt = sess.UpdatedAt.Add(time.Second)
 
@@ -301,4 +301,34 @@ func TestSessionStore_ListUpdatedSince(t *testing.T) {
 	if len(listEmpty) != 0 {
 		t.Errorf("expected 0 sessions, got %d", len(listEmpty))
 	}
+}
+
+func TestSessionStore_GetBatch(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	t.Run("get batch from sqlite", func(t *testing.T) {
+		s1 := buildSession("b1", "user-batch")
+		s2 := buildSession("b2", "user-batch")
+
+		if err := store.Save(ctx, s1); err != nil {
+			t.Fatalf("Save s1: %v", err)
+		}
+		if err := store.Save(ctx, s2); err != nil {
+			t.Fatalf("Save s2: %v", err)
+		}
+
+		res, err := store.GetBatch(ctx, []string{"b1", "b2", "non-exists"})
+		if err != nil {
+			t.Fatalf("GetBatch failed: %v", err)
+		}
+
+		if len(res) != 2 {
+			t.Fatalf("expected 2 sessions, got %d", len(res))
+		}
+
+		if res["b1"].ID != "b1" || res["b2"].ID != "b2" {
+			t.Errorf("expected sessions keys [b1, b2], got [%v, %v]", res["b1"], res["b2"])
+		}
+	})
 }

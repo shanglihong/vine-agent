@@ -28,6 +28,9 @@ type Session struct {
 	UpdatedAt time.Time         `json:"updated_at"`
 	Metadata  map[string]string `json:"metadata"`
 	Messages  []message.Message `json:"messages"`
+
+	// 内存特有字段，记录加载或克隆时消息的状态快照，用于判断 messages 字段是否被修改
+	messagesSnapshot int
 }
 
 // NewSession 创建一个新的会话实例。如果传入 the id 为空，会内置自动生成一个基于时间戳的唯一会话 ID
@@ -169,7 +172,7 @@ func (s *Session) CancelPendingConfirmations() {
 	for _, id := range pendingIDs {
 		// 自动追加一个 Tool 消息，表示调用被用户取消了
 		cancelMsg := message.NewToolMessage(id, "Tool execution cancelled because user sent a new message instead of approving.")
-		s.Messages = append(s.Messages, cancelMsg)
+		s.AppendMessage(cancelMsg)
 	}
 
 	// 清理会话挂起状态
@@ -185,4 +188,63 @@ func joinStrings(elems []string, sep string) string {
 		res += sep + val
 	}
 	return res
+}
+
+// AppendMessage 追加单条消息
+func (s *Session) AppendMessage(msg message.Message) {
+	s.Messages = append(s.Messages, msg)
+}
+
+// AppendMessages 批量追加消息
+func (s *Session) AppendMessages(msgs []message.Message) {
+	if len(msgs) == 0 {
+		return
+	}
+	s.Messages = append(s.Messages, msgs...)
+}
+
+// InitMessagesSnapshot 根据当前的消息内容和长度生成快照指纹并存入私有字段。
+// 注意：该方法主要供基础设施（Infra）层在加载与保存成功后同步快照指纹，其他业务层无需感知与显式调用。
+func (s *Session) InitMessagesSnapshot() {
+	fingerprint := len(s.Messages)
+	for _, m := range s.Messages {
+		fingerprint += len(m.Content)
+	}
+	s.messagesSnapshot = fingerprint
+}
+
+// IsMessagesDirty 判断当前消息是否相较于快照有变化（新增或内容被修改）。
+// 注意：该方法主要供基础设施（Infra）层在物理保存前判定是否执行增量保存优化，其他业务层无需感知与显式调用。
+func (s *Session) IsMessagesDirty() bool {
+	fingerprint := len(s.Messages)
+	for _, m := range s.Messages {
+		fingerprint += len(m.Content)
+	}
+	return fingerprint != s.messagesSnapshot
+}
+
+// Clone 实现 Session 结构体的并发安全深拷贝
+func (s *Session) Clone() *Session {
+	if s == nil {
+		return nil
+	}
+	cloned := &Session{
+		ID:               s.ID,
+		UserID:           s.UserID,
+		Name:             s.Name,
+		CreatedAt:        s.CreatedAt,
+		UpdatedAt:        s.UpdatedAt,
+		messagesSnapshot: s.messagesSnapshot, // 直接拷贝快照指纹，不重新 Init
+	}
+	if s.Metadata != nil {
+		cloned.Metadata = make(map[string]string, len(s.Metadata))
+		for k, v := range s.Metadata {
+			cloned.Metadata[k] = v
+		}
+	}
+	if s.Messages != nil {
+		cloned.Messages = make([]message.Message, len(s.Messages))
+		copy(cloned.Messages, s.Messages)
+	}
+	return cloned
 }

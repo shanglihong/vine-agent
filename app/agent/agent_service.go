@@ -53,7 +53,7 @@ func (s *agentService) Generate(ctx context.Context, messages []message.Message,
 		return nil, err
 	}
 
-	sess.Messages = append(sess.Messages, *resp)
+	sess.AppendMessage(*resp)
 	if err := s.sessionSvc.Save(ctx, sess); err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (s *agentService) Stream(ctx context.Context, messages []message.Message, o
 			}
 		}
 		if reader.IsUserCancelled() {
-			sess.Messages = append(sess.Messages, message.NewInterruptedMessage())
+			sess.AppendMessage(message.NewInterruptedMessage())
 			_ = s.sessionSvc.Save(context.WithoutCancel(ctx), sess)
 		}
 	}()
@@ -122,7 +122,7 @@ func (s *agentService) acceptUserMessages(ctx context.Context, messages []messag
 		sess.Name = messages[0].Content
 	}
 
-	sess.Messages = append(sess.Messages, messages...)
+	sess.AppendMessages(messages)
 	if err := s.sessionSvc.Save(ctx, sess); err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func (s *agentService) runStreamLoop(ctx context.Context, reader *agentEventRead
 		if err != nil {
 			return err
 		}
-		sess.Messages = append(sess.Messages, *assistantMsg)
+		sess.AppendMessage(*assistantMsg)
 		if sessionErr := s.sessionSvc.Save(ctx, sess); sessionErr != nil {
 			return sessionErr
 		}
@@ -167,7 +167,7 @@ func (s *agentService) runStreamLoop(ctx context.Context, reader *agentEventRead
 
 		results, pendingResults := s.toolExc(ctx, toolBeforeExc, toolAfterExc, assistantMsg, chatOpt)
 		if len(results) > 0 {
-			sess.Messages = append(sess.Messages, results...)
+			sess.AppendMessages(results)
 			if sessionErr := s.sessionSvc.Save(ctx, sess); sessionErr != nil {
 				return sessionErr
 			}

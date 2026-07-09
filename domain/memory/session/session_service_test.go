@@ -247,3 +247,47 @@ func TestSessionService_ListUpdatedSince(t *testing.T) {
 		assert.Equal(t, "sess-a", got[0].ID)
 	})
 }
+
+func TestSessionService_GetBatch(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("successful batch get", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockRepo := mock.NewMockSessionRepository(ctrl)
+		service := session.NewSessionService(mockRepo)
+
+		sess1 := &session.Session{ID: "sess-1", UserID: "user-1"}
+		sess2 := &session.Session{ID: "sess-2", UserID: "user-1"}
+
+		mockRepo.EXPECT().GetBatch(ctx, []string{"sess-1", "sess-2"}).Return(map[string]*session.Session{
+			"sess-1": sess1,
+			"sess-2": sess2,
+		}, nil).Times(1)
+
+		got, err := service.GetBatch(ctx, []string{"sess-1", "sess-2"})
+		require.NoError(t, err)
+		assert.Len(t, got, 2)
+		assert.Equal(t, "sess-1", got["sess-1"].ID)
+		assert.Equal(t, "sess-2", got["sess-2"].ID)
+	})
+
+	t.Run("partial error get", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockRepo := mock.NewMockSessionRepository(ctrl)
+		service := session.NewSessionService(mockRepo)
+
+		sess1 := &session.Session{ID: "sess-1", UserID: "user-1"}
+
+		mockRepo.EXPECT().GetBatch(ctx, []string{"sess-1", "sess-2"}).Return(map[string]*session.Session{
+			"sess-1": sess1,
+		}, errors.New("db error")).Times(1)
+
+		got, err := service.GetBatch(ctx, []string{"sess-1", "sess-2"})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "db error")
+		assert.Len(t, got, 1)
+		assert.Equal(t, "sess-1", got["sess-1"].ID)
+	})
+}

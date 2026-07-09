@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"vine-agent/domain/message"
 	"vine-agent/utils"
 )
 
@@ -44,7 +43,7 @@ func (s *sessionService) Save(ctx context.Context, sess *Session) error {
 // Get 首先尝试从并发安全内存缓存中读取 Session，如果未命中则穿透到底层物理持久化中读取并缓存
 func (s *sessionService) Get(ctx context.Context, id string) (*Session, error) {
 	if sess, ok := s.cache.Get(id); ok {
-		return cloneSession(sess), nil
+		return sess.Clone(), nil
 	}
 
 	sess, err := s.persist.Get(ctx, id)
@@ -53,7 +52,7 @@ func (s *sessionService) Get(ctx context.Context, id string) (*Session, error) {
 	}
 
 	s.cache.Set(id, sess)
-	return cloneSession(sess), nil
+	return sess.Clone(), nil
 }
 
 // Delete 从物理持久化中删除 Session，并清理内存缓存中的记录
@@ -85,27 +84,38 @@ func (s *sessionService) ListUpdatedSince(ctx context.Context, since time.Time) 
 	return s.persist.ListUpdatedSince(ctx, since)
 }
 
-// cloneSession 实现 Session 结构体的并发安全深拷贝
-func cloneSession(s *Session) *Session {
-	if s == nil {
-		return nil
+
+
+// GetBatch 批量获取 Session 实体。内部并发安全加载，优先读取缓存，未命中则穿透物理仓储批量获取
+func (s *sessionService) GetBatch(ctx context.Context, ids []string) (map[string]*Session, error) {
+	if len(ids) == 0 {
+		return nil, nil
 	}
-	cloned := &Session{
-		ID:        s.ID,
-		UserID:    s.UserID,
-		Name:      s.Name,
-		CreatedAt: s.CreatedAt,
-		UpdatedAt: s.UpdatedAt,
-	}
-	if s.Metadata != nil {
-		cloned.Metadata = make(map[string]string, len(s.Metadata))
-		for k, v := range s.Metadata {
-			cloned.Metadata[k] = v
+
+	res := make(map[string]*Session)
+	var missingIDs []string
+
+	// 1. 尝试从缓存获取
+	for _, id := range ids {
+		if sess, ok := s.cache.Get(id); ok {
+			res[id] = sess.Clone()
+		} else {
+			missingIDs = append(missingIDs, id)
 		}
 	}
-	if s.Messages != nil {
-		cloned.Messages = make([]message.Message, len(s.Messages))
-		copy(cloned.Messages, s.Messages)
+
+	if len(missingIDs) == 0 {
+		return res, nil
 	}
-	return cloned
+
+	// 2. 批量从底层物理仓储获取未命中的
+	dbSessions, err := s.persist.GetBatch(ctx, missingIDs)
+
+	// 3. 把物理获取到的写入缓存，并加入最终结果
+	for _, sess := range dbSessions {
+		s.cache.Set(sess.ID, sess)
+		res[sess.ID] = sess.Clone()
+	}
+
+	return res, err
 }
