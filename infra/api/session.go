@@ -121,9 +121,10 @@ func (h *APIHandler) Chat(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionID := r.PathValue("id")
 	var req struct {
-		UserID  string `json:"user_id"`
-		Message string `json:"message"`
-		Model   string `json:"model"`
+		UserID  string   `json:"user_id"`
+		Message string   `json:"message"`
+		Model   string   `json:"model"`
+		Tools   []string `json:"tools"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
@@ -157,8 +158,20 @@ func (h *APIHandler) Chat(w http.ResponseWriter, r *http.Request) {
 
 	// 构建大模型工具参数
 	toolsList := make([]tool.Tool, 0, len(h.tools))
-	for _, t := range h.tools {
-		toolsList = append(toolsList, t)
+	if req.Tools != nil {
+		enabled := make(map[string]bool, len(req.Tools))
+		for _, name := range req.Tools {
+			enabled[name] = true
+		}
+		for _, t := range h.tools {
+			if enabled[t.Info().Name] {
+				toolsList = append(toolsList, t)
+			}
+		}
+	} else {
+		for _, t := range h.tools {
+			toolsList = append(toolsList, t)
+		}
 	}
 
 	reader, err := h.agentSvc.Stream(ctx, []message.Message{userMsg},
@@ -231,8 +244,9 @@ func (h *APIHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionID := r.PathValue("id")
 	var req struct {
-		UserID                string   `json:"user_id"`
+		UserID               string   `json:"user_id"`
 		ConfirmedToolCallIDs []string `json:"confirmed_tool_call_ids"`
+		Tools                []string `json:"tools"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
@@ -255,8 +269,20 @@ func (h *APIHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 
 	// 构建大模型工具参数
 	toolsList := make([]tool.Tool, 0, len(h.tools))
-	for _, t := range h.tools {
-		toolsList = append(toolsList, t)
+	if req.Tools != nil {
+		enabled := make(map[string]bool, len(req.Tools))
+		for _, name := range req.Tools {
+			enabled[name] = true
+		}
+		for _, t := range h.tools {
+			if enabled[t.Info().Name] {
+				toolsList = append(toolsList, t)
+			}
+		}
+	} else {
+		for _, t := range h.tools {
+			toolsList = append(toolsList, t)
+		}
 	}
 
 	// 恢复挂起的会话流
@@ -414,4 +440,3 @@ func (h *APIHandler) RenameSession(w http.ResponseWriter, r *http.Request) {
 
 	h.respondJSON(w, http.StatusOK, map[string]string{"session_id": sessionID, "status": "renamed", "name": req.Name})
 }
-

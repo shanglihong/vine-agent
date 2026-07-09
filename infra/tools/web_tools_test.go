@@ -71,7 +71,6 @@ func TestWebSearchTool_Execute(t *testing.T) {
 		assert.NoError(t, err)
 
 		// 校验包含解析出的结果
-		assert.Contains(t, res, "以下是关于 \"Go 1.25\" 的搜索结果：")
 		assert.Contains(t, res, "Go 1.25 is out")
 		assert.Contains(t, res, "https://go.dev/blog/go1.25")
 		assert.Contains(t, res, "Go 1.25 is officially released")

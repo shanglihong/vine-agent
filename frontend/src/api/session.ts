@@ -27,11 +27,11 @@ export async function createSession(sessionId: string, userId: string): Promise<
   }
 }
 
-export async function sendChatMessage(sessionId: string, userId: string, message: string, model: string): Promise<Response> {
+export async function sendChatMessage(sessionId: string, userId: string, message: string, model: string, tools?: string[]): Promise<Response> {
   const res = await fetch(`/api/sessions/${sessionId}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_id: userId, message, model }),
+    body: JSON.stringify({ user_id: userId, message, model, tools }),
   });
   if (!res.ok) {
     throw new Error(`Failed to send chat message: status ${res.status}`);

@@ -59,6 +59,12 @@ const getToolIcon = (toolName: string) => {
   );
 };
 
+interface SearchItem {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
 interface MessageListProps {
   messages: Message[];
   isStreaming: boolean;
@@ -66,6 +72,12 @@ interface MessageListProps {
   setExpandedReasoning: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
   onQuickAction: (text: string) => void;
   username?: string;
+  onShowTooltip: (text: string, e: React.MouseEvent) => void;
+  onMoveTooltip: (e: React.MouseEvent) => void;
+  onHideTooltip: () => void;
+  onOpenSearchResults: (items: { title: string; url: string; snippet: string }[], fetchedUrls: Set<string>) => void;
+  isSearchPanelOpen: boolean;
+  searchResults: { title: string; url: string; snippet: string }[];
 }
 
 export default function MessageList({
@@ -75,6 +87,12 @@ export default function MessageList({
   setExpandedReasoning,
   onQuickAction,
   username,
+  onShowTooltip,
+  onMoveTooltip,
+  onHideTooltip,
+  onOpenSearchResults,
+  isSearchPanelOpen,
+  searchResults,
 }: MessageListProps) {
   if (messages.length === 0) {
     return (
@@ -223,130 +241,208 @@ export default function MessageList({
 
             <div className="chat-bubble">
               {/* Reasoning / Tool Steps Accordion */}
-              {!isUser && ((m.timeline && m.timeline.length > 0) || m.reasoning_content) && (
-                <div className="reasoning-accordion">
-                  <div
-                    className={`reasoning-toggle ${isReasoningExpanded ? 'open' : ''}`}
-                    onClick={() => {
-                      setExpandedReasoning((prev) => ({
-                        ...prev,
-                        [idx]: !isReasoningExpanded,
-                      }));
-                    }}
-                  >
-                    {/* 旋转的小箭头 */}
-                    <svg
-                      className="reasoning-toggle-arrow"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+              {!isUser && ((m.timeline && m.timeline.length > 0) || m.reasoning_content) && (() => {
+                const searchItem = m.timeline?.find(i => i.kind === 'tool_call' && i.toolName === 'web_search');
+                let searchItems: SearchItem[] = [];
+                if (searchItem && searchItem.output) {
+                  try {
+                    searchItems = JSON.parse(searchItem.output);
+                  } catch {
+                    // 容错
+                  }
+                }
+                // 扫描整个会话所有消息，收集所有 fetch_webpage/web_crawl 精读的 URL
+                const fetchedUrls = new Set<string>();
+                messages.forEach((msg, mIndex) => {
+                  console.log(`[MsgList] Message #${mIndex} role=${msg.role} timeline=`, msg.timeline, "tool_calls=", msg.tool_calls);
+                  (msg.timeline ?? []).forEach(i => {
+                    if (i.kind === 'tool_call' && (i.toolName === 'fetch_webpage' || i.toolName === 'web_crawl')) {
+                      try {
+                        const parsedArgs = JSON.parse(i.toolArgs || '{}');
+                        const url = parsedArgs.url as string;
+                        console.log(`[MsgList] Found fetch tool call with URL: ${url}`);
+                        if (url) fetchedUrls.add(url);
+                      } catch (e) {
+                        console.error(`[MsgList] Failed to parse toolArgs for fetch:`, i.toolArgs, e);
+                      }
+                    }
+                  });
+                });
+                console.log("[MsgList] Final extracted fetchedUrls set:", Array.from(fetchedUrls));
+
+                return (
+                  <div className="reasoning-accordion">
+                    <div
+                      className={`reasoning-toggle ${isReasoningExpanded ? 'open' : ''}`}
+                      onClick={() => {
+                        setExpandedReasoning((prev) => ({
+                          ...prev,
+                          [idx]: !isReasoningExpanded,
+                        }));
+                      }}
                     >
-                      <polyline points="9 18 15 12 9 6"></polyline>
-                    </svg>
-                    <span>Thinking</span>
-                    {isStreaming && !m.content && idx === messages.length - 1 && (
-                      <span className="thinking-spinner-container">
-                        <svg className="thinking-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round">
-                          <circle cx="12" cy="12" r="10" strokeDasharray="30 15" />
-                        </svg>
-                      </span>
-                    )}
-                    {m.timeline && m.timeline.filter((i) => i.kind === 'tool_call').length > 0 && (
-                      <span className="tool-steps-badge">
-                        {m.timeline.filter((i) => i.kind === 'tool_call').length} tool call(s)
-                      </span>
-                    )}
-                  </div>
-                  <div className={`reasoning-content-wrapper ${isReasoningExpanded ? 'expanded' : 'collapsed'}`}>
-                    <div className="reasoning-content">
-                      {/* 按 timeline 顺序渲染：推理文本 + 工具步骤卡片 */}
-                      {m.timeline && m.timeline.length > 0 ? (
-                        m.timeline.map((item: TimelineItem, tIdx) => {
-                          if (item.kind === 'reasoning') {
+                      {/* 旋转的小箭头 */}
+                      <svg
+                        className="reasoning-toggle-arrow"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                      </svg>
+                      {(() => {
+                        const isActive = isStreaming && !m.content && idx === messages.length - 1;
+                        const toolCalls = m.timeline?.filter(i => i.kind === 'tool_call') ?? [];
+                        const hasSearch = searchItems.length > 0;
+                        if (isActive) {
+                          return toolCalls.length > 0
+                            ? <span>Using tools</span>
+                            : <span>Thinking</span>;
+                        }
+                        if (hasSearch) return <span>Searched</span>;
+                        if (toolCalls.length > 0) return <span>Used tools</span>;
+                        return <span>Thought</span>;
+                      })()}
+                      {isStreaming && !m.content && idx === messages.length - 1 && (
+                        <span className="thinking-spinner-container">
+                          <svg className="thinking-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round">
+                            <circle cx="12" cy="12" r="10" strokeDasharray="30 15" />
+                          </svg>
+                        </span>
+                      )}
+                      {m.timeline && m.timeline.filter((i) => i.kind === 'tool_call').length > 0 && (
+                        <span className="tool-steps-badge">
+                          <svg className="tool-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+                          </svg>
+                          {(() => {
+                            const count = m.timeline.filter((i) => i.kind === 'tool_call').length;
+                            return count === 1 ? 'Used 1 tool' : `Used ${count} tools`;
+                          })()}
+                        </span>
+                      )}
+                      {searchItems.length > 0 && (() => {
+                        const isActive = isSearchPanelOpen && 
+                          searchResults.length === searchItems.length &&
+                          searchResults.every((val, index) => val.url === searchItems[index]?.url);
+                        return (
+                          <span
+                            className={`search-summary-bubble ${isActive ? 'active' : ''}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenSearchResults(searchItems, fetchedUrls);
+                            }}
+                            onMouseEnter={(e) => onShowTooltip('View search sources', e)}
+                            onMouseMove={(e) => onMoveTooltip(e)}
+                            onMouseLeave={() => onHideTooltip()}
+                          >
+                            <svg className="search-bubble-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="2" y1="12" x2="22" y2="12" />
+                              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                            </svg>
+                            <span>Searched {searchItems.length} sources</span>
+                            <span className="search-chevron-wrapper">
+                              <svg className="search-chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: '8px', height: '8px' }}>
+                                <polyline points="9 18 15 12 9 6" />
+                              </svg>
+                            </span>
+                          </span>
+                        );
+                      })()}
+                    </div>
+
+                    <div className={`reasoning-content-wrapper ${isReasoningExpanded ? 'expanded' : 'collapsed'}`}>
+                      <div className="reasoning-content">
+                        {/* 按 timeline 顺序渲染：推理文本 + 工具步骤卡片 */}
+                        {m.timeline && m.timeline.length > 0 ? (
+                          m.timeline.map((item: TimelineItem, tIdx) => {
+                            if (item.kind === 'reasoning') {
+                              return (
+                                <div key={tIdx} className="reasoning-text">
+                                  {item.text}
+                                </div>
+                              );
+                            }
+                            // tool_call item
+                            const hasResult =
+                              item.output !== undefined || item.error !== undefined;
+                            let parsedArgs: Record<string, unknown> | null = null;
+                            try {
+                              if (item.toolArgs) parsedArgs = JSON.parse(item.toolArgs);
+                            } catch { }
+                            const statusClass = hasResult
+                              ? item.error
+                                ? 'error'
+                                : 'success'
+                              : 'pending';
+                            const statusText = hasResult
+                              ? item.error
+                                ? 'Failed'
+                                : 'Done'
+                              : 'Running';
                             return (
-                              <div key={tIdx} className="reasoning-text">
-                                {item.text}
-                              </div>
-                            );
-                          }
-                          // tool_call item
-                          const hasResult =
-                            item.output !== undefined || item.error !== undefined;
-                          let parsedArgs: Record<string, unknown> | null = null;
-                          try {
-                            if (item.toolArgs) parsedArgs = JSON.parse(item.toolArgs);
-                          } catch { }
-                          const statusClass = hasResult
-                            ? item.error
-                              ? 'error'
-                              : 'success'
-                            : 'pending';
-                          const statusText = hasResult
-                            ? item.error
-                              ? 'Failed'
-                              : 'Done'
-                            : 'Running';
-                          return (
-                            <div key={tIdx} className="tool-step-card">
-                              <div className="tool-step-header">
-                                <div className="tool-name-container">
-                                  {getToolIcon(item.toolName || '')}
-                                  <span className="tool-step-name">
-                                    {item.toolName || 'tool'}
+                              <div key={tIdx} className="tool-step-card">
+                                <div className="tool-step-header">
+                                  <div className="tool-name-container">
+                                    {getToolIcon(item.toolName || '')}
+                                    <span className="tool-step-name">
+                                      {item.toolName || 'tool'}
+                                    </span>
+                                  </div>
+                                  <span className={`tool-step-status ${statusClass}`}>
+                                    <span className="status-dot-indicator"></span>
+                                    {statusText}
                                   </span>
                                 </div>
-                                <span className={`tool-step-status ${statusClass}`}>
-                                  <span className="status-dot-indicator"></span>
-                                  {statusText}
-                                </span>
+                                {item.toolArgs && (
+                                  <div className="tool-step-section tool-step-input">
+                                    <div className="tool-step-section-label">
+                                      <svg className="section-label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="9 18 15 12 9 6" />
+                                      </svg>
+                                      Input
+                                    </div>
+                                    <pre className="tool-step-code">
+                                      {parsedArgs
+                                        ? JSON.stringify(parsedArgs, null, 2)
+                                        : item.toolArgs}
+                                    </pre>
+                                  </div>
+                                )}
+                                {hasResult && (
+                                  <div
+                                    className={`tool-step-section ${item.error ? 'tool-step-error' : 'tool-step-result'
+                                      }`}
+                                  >
+                                    <div className="tool-step-section-label">
+                                      <svg className="section-label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="15 18 9 12 15 6" />
+                                      </svg>
+                                      {item.error ? 'Error' : 'Output'}
+                                    </div>
+                                    <pre className="tool-step-code">
+                                      {item.error ? String(item.error) : item.output || '(empty)'}
+                                    </pre>
+                                  </div>
+                                )}
                               </div>
-                              {item.toolArgs && (
-                                <div className="tool-step-section tool-step-input">
-                                  <div className="tool-step-section-label">
-                                    <svg className="section-label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                      <polyline points="9 18 15 12 9 6" />
-                                    </svg>
-                                    Input
-                                  </div>
-                                  <pre className="tool-step-code">
-                                    {parsedArgs
-                                      ? JSON.stringify(parsedArgs, null, 2)
-                                      : item.toolArgs}
-                                  </pre>
-                                </div>
-                              )}
-                              {hasResult && (
-                                <div
-                                  className={`tool-step-section ${item.error ? 'tool-step-error' : 'tool-step-result'
-                                    }`}
-                                >
-                                  <div className="tool-step-section-label">
-                                    <svg className="section-label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                      <polyline points="15 18 9 12 15 6" />
-                                    </svg>
-                                    {item.error ? 'Error' : 'Output'}
-                                  </div>
-                                  <pre className="tool-step-code">
-                                    {item.error ? String(item.error) : item.output || '(empty)'}
-                                  </pre>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })
-                      ) : (
-                        /* 兼容历史消息：仅有 reasoning_content */
-                        m.reasoning_content && (
-                          <div className="reasoning-text">{m.reasoning_content}</div>
-                        )
-                      )}
+                            );
+                          })
+                        ) : (
+                          /* 兼容历史消息：仅有 reasoning_content */
+                          m.reasoning_content && (
+                            <div className="reasoning-text">{m.reasoning_content}</div>
+                          )
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
               {/* 主答复文本 */}
               <div className={isUser ? 'message-content-user' : 'markdown-body'}>
                 {m.content ? (

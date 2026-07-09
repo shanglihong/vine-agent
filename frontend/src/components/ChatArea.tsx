@@ -16,17 +16,20 @@ interface ChatAreaProps {
   selectedModel: string;
   expandedReasoning: Record<number, boolean>;
   setExpandedReasoning: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
+  webSearchEnabled: boolean;
+  setWebSearchEnabled: (enabled: boolean) => void;
   onSendMessage: (text: string) => void;
   onApproveInterrupt: () => void;
   onRejectInterrupt: () => void;
   onCancelChat: () => void;
   setSelectedModel: (model: string) => void;
-  isMemoryCollapsed: boolean;
-  setIsMemoryCollapsed: (collapsed: boolean) => void;
   username?: string;
   onShowTooltip: (text: string, e: React.MouseEvent) => void;
   onMoveTooltip: (e: React.MouseEvent) => void;
   onHideTooltip: () => void;
+  onOpenSearchResults: (items: { title: string; url: string; snippet: string }[], fetchedUrls: Set<string>) => void;
+  isSearchPanelOpen: boolean;
+  searchResults: { title: string; url: string; snippet: string }[];
 }
 
 export default function ChatArea({
@@ -38,17 +41,20 @@ export default function ChatArea({
   selectedModel,
   expandedReasoning,
   setExpandedReasoning,
+  webSearchEnabled,
+  setWebSearchEnabled,
   onSendMessage,
   onApproveInterrupt,
   onRejectInterrupt,
   onCancelChat,
   setSelectedModel,
-  isMemoryCollapsed,
-  setIsMemoryCollapsed,
   username,
   onShowTooltip,
   onMoveTooltip,
   onHideTooltip,
+  onOpenSearchResults,
+  isSearchPanelOpen,
+  searchResults,
 }: ChatAreaProps) {
   const [inputValue, setInputValue] = useState<string>('');
   const messageEndRef = useRef<HTMLDivElement | null>(null);
@@ -155,19 +161,23 @@ export default function ChatArea({
           <svg
             viewBox="0 0 24 24"
             style={{
-              width: '15px',
-              height: '15px',
+              width: '14px',
+              height: '14px',
               fill: 'none',
-              stroke: 'var(--text-muted)',
-              strokeWidth: 2,
+              stroke: 'var(--primary-color)',
+              strokeWidth: 1.8,
               strokeLinecap: 'round',
               strokeLinejoin: 'round',
-              opacity: 0.8,
+              opacity: 0.75,
               flexShrink: 0,
             }}
             xmlns="http://www.w3.org/2000/svg"
           >
+            {/* 消息框外廓 */}
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            {/* 内部精细段落线，消除空框古板感 */}
+            <line x1="8" y1="9" x2="16" y2="9" />
+            <line x1="8" y1="13" x2="13" y2="13" />
           </svg>
 
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', minWidth: 0 }}>
@@ -261,46 +271,6 @@ export default function ChatArea({
               )}
             </button>
           )}
-
-          <button
-            className="toggle-memory-btn"
-            onClick={() => setIsMemoryCollapsed(!isMemoryCollapsed)}
-            title={isMemoryCollapsed ? '展开记忆面板' : '折叠记忆面板'}
-          >
-            {isMemoryCollapsed ? (
-              /* 折叠状态：显示"面板隐藏"标识 — 两条竖线 + 左展开箭头 */
-              <svg
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <line x1="15" y1="3" x2="15" y2="21" />
-                <polyline points="11 9 8 12 11 15" />
-              </svg>
-            ) : (
-              /* 展开状态：显示"面板可见"标识 — 两条竖线 + 右折叠箭头 */
-              <svg
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <line x1="15" y1="3" x2="15" y2="21" />
-                <polyline points="13 9 16 12 13 15" />
-              </svg>
-            )}
-          </button>
         </div>
       </header>
 
@@ -312,6 +282,12 @@ export default function ChatArea({
           setExpandedReasoning={setExpandedReasoning}
           onQuickAction={handleQuickAction}
           username={username}
+          onShowTooltip={onShowTooltip}
+          onMoveTooltip={onMoveTooltip}
+          onHideTooltip={onHideTooltip}
+          onOpenSearchResults={onOpenSearchResults}
+          isSearchPanelOpen={isSearchPanelOpen}
+          searchResults={searchResults}
         />
 
         {/* 敏感工具确认审批卡片 */}
@@ -382,6 +358,8 @@ export default function ChatArea({
           currentSessionID={currentSessionID}
           onSubmit={handleSubmit}
           onCancelChat={onCancelChat}
+          webSearchEnabled={webSearchEnabled}
+          setWebSearchEnabled={setWebSearchEnabled}
         />
       </div>
     </main>

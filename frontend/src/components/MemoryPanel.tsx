@@ -1,3 +1,4 @@
+import React from 'react';
 import { Profile } from '../types';
 
 interface MemoryPanelProps {
@@ -6,6 +7,10 @@ interface MemoryPanelProps {
   isEvolving: boolean;
   currentSessionID: string;
   onEvolveProfile: () => void;
+  onClose: () => void;
+  onShowTooltip: (text: string, e: React.MouseEvent) => void;
+  onMoveTooltip: (e: React.MouseEvent) => void;
+  onHideTooltip: () => void;
 }
 
 export default function MemoryPanel({
@@ -14,6 +19,10 @@ export default function MemoryPanel({
   isEvolving,
   currentSessionID,
   onEvolveProfile,
+  onClose,
+  onShowTooltip,
+  onMoveTooltip,
+  onHideTooltip,
 }: MemoryPanelProps) {
   return (
     <aside className={`memory-panel ${isMemoryCollapsed ? 'collapsed' : ''}`}>
@@ -39,14 +48,27 @@ export default function MemoryPanel({
           </svg>
           <h3>Memory Vineyard</h3>
         </div>
-        <button
-          className={`evolve-btn ${isEvolving ? 'spinning' : ''}`}
-          onClick={onEvolveProfile}
-          disabled={isEvolving || !currentSessionID}
-          title="手动归纳并提炼对话中的长期画像"
-        >
-          {isEvolving ? 'Distilling...' : 'Distill'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            className={`evolve-btn ${isEvolving ? 'spinning' : ''}`}
+            onClick={onEvolveProfile}
+            disabled={isEvolving || !currentSessionID}
+            onMouseEnter={(e) => onShowTooltip("手动归纳并提炼对话中的长期画像", e)}
+            onMouseMove={onMoveTooltip}
+            onMouseLeave={onHideTooltip}
+          >
+            {isEvolving ? 'Distilling...' : 'Distill'}
+          </button>
+          <button
+            className="search-results-close"
+            onClick={onClose}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}>
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
       </header>
 
       <div className="memory-content">

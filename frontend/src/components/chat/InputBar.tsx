@@ -10,6 +10,8 @@ interface InputBarProps {
   currentSessionID: string;
   onSubmit: (e: React.FormEvent) => void;
   onCancelChat: () => void;
+  webSearchEnabled: boolean;
+  setWebSearchEnabled: (enabled: boolean) => void;
 }
 
 export default function InputBar({
@@ -22,6 +24,8 @@ export default function InputBar({
   currentSessionID,
   onSubmit,
   onCancelChat,
+  webSearchEnabled,
+  setWebSearchEnabled,
 }: InputBarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -86,55 +90,73 @@ export default function InputBar({
 
         {/* 2. 下层：控制栏（左侧模型选择器，右侧发送/停止按钮） */}
         <div className="input-control-row">
-          {/* 左侧：芯片状模型选择药丸 */}
-          <div className="model-selector-container" ref={dropdownRef}>
+          <div className="input-control-left">
+            {/* 左侧：芯片状模型选择药丸 */}
+            <div className="model-selector-container" ref={dropdownRef}>
+              <button
+                type="button"
+                className={`model-selector-pill ${isOpen ? 'active' : ''}`}
+                onClick={() => setIsOpen(!isOpen)}
+                disabled={isStreaming || !!pendingInterrupt || !currentSessionID}
+              >
+                {/* 极简 AI 星光 SVG 图标，代表智能模型 */}
+                <svg className="model-selector-chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2C12 2 12 12 2 12C12 12 12 22 12 22C12 22 12 12 22 12C12 12 22 12 12 2z" />
+                </svg>
+                <span className="model-selector-label">{selectedLabel}</span>
+                <svg
+                  className={`model-selector-arrow ${isOpen ? 'open' : ''}`}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+
+              {isOpen && (
+                <div className="model-dropdown-menu">
+                  {models.map((m) => (
+                    <div
+                      key={m.id}
+                      className={`model-dropdown-item ${selectedModel === m.id ? 'selected' : ''}`}
+                      onClick={() => {
+                        setSelectedModel(m.id);
+                        setIsOpen(false);
+                      }}
+                    >
+                      <span className="item-check-icon">
+                        {selectedModel === m.id && (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </span>
+                      <span className="item-label">{m.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 联网搜索开关 */}
             <button
               type="button"
-              className={`model-selector-pill ${isOpen ? 'active' : ''}`}
-              onClick={() => setIsOpen(!isOpen)}
+              className={`web-search-toggle-pill ${webSearchEnabled ? 'active' : ''}`}
+              onClick={() => setWebSearchEnabled(!webSearchEnabled)}
               disabled={isStreaming || !!pendingInterrupt || !currentSessionID}
+              title={webSearchEnabled ? 'Search enabled' : 'Search the web'}
             >
-              {/* 极简 AI 星光 SVG 图标，代表智能模型 */}
-              <svg className="model-selector-chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2C12 2 12 12 2 12C12 12 12 22 12 22C12 22 12 12 22 12C12 12 22 12 12 2z" />
+              <svg className="web-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
               </svg>
-              <span className="model-selector-label">{selectedLabel}</span>
-              <svg
-                className={`model-selector-arrow ${isOpen ? 'open' : ''}`}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
+              <span className="web-search-label">Web Search</span>
             </button>
-
-            {isOpen && (
-              <div className="model-dropdown-menu">
-                {models.map((m) => (
-                  <div
-                    key={m.id}
-                    className={`model-dropdown-item ${selectedModel === m.id ? 'selected' : ''}`}
-                    onClick={() => {
-                      setSelectedModel(m.id);
-                      setIsOpen(false);
-                    }}
-                  >
-                    <span className="item-check-icon">
-                      {selectedModel === m.id && (
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      )}
-                    </span>
-                    <span className="item-label">{m.label}</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* 右侧：发送/停止按钮 */}

@@ -19,8 +19,54 @@ export default function App() {
   // 状态：深色/明亮模式
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
 
-  // 状态：长期记忆画像面板折叠状态，默认折叠
+  // User 维度状态：长期记忆画像面板折叠状态，默认折叠。跨会话保持状态
   const [isMemoryCollapsed, setIsMemoryCollapsed] = useState<boolean>(true);
+
+  // Session 维度状态：联网搜索结果面板。切换会话时自动关闭
+  const [searchResults, setSearchResults] = useState<{ title: string; url: string; snippet: string }[]>([]);
+  const [fetchedUrls, setFetchedUrls] = useState<Set<string>>(new Set());
+  const [isSearchPanelOpen, setIsSearchPanelOpen] = useState(false);
+
+  // URL 归一化：提取实际目标URL，去掉尾部斜杠、统一小写 scheme+host
+  const normalizeUrl = (url: string): string => {
+    try {
+      let targetUrl = url.trim();
+      if (targetUrl.includes('uddg=')) {
+        const u = new URL(targetUrl);
+        const uddg = u.searchParams.get('uddg');
+        if (uddg) {
+          targetUrl = decodeURIComponent(uddg);
+        }
+      } else if (targetUrl.includes('duckduckgo.com/l/?')) {
+        const match = targetUrl.match(/[?&]uddg=([^&]+)/);
+        if (match && match[1]) {
+          targetUrl = decodeURIComponent(match[1]);
+        }
+      }
+
+      const u = new URL(targetUrl);
+      return (u.origin + u.pathname).replace(/\/+$/, '') + u.search;
+    } catch {
+      return url.trim().replace(/\/+$/, '');
+    }
+  };
+
+  const handleOpenSearchResults = (items: { title: string; url: string; snippet: string }[], urls: Set<string>) => {
+    // 检查是否重复点击了相同的 sources
+    const isSame = isSearchPanelOpen &&
+      searchResults.length === items.length &&
+      searchResults.every((val, index) => val.url === items[index]?.url);
+
+    if (isSame) {
+      setIsSearchPanelOpen(false);
+    } else {
+      setSearchResults(items);
+      // 存储归一化后的 URL 集合，方便匹配
+      setFetchedUrls(new Set([...urls].map(normalizeUrl)));
+      setIsSearchPanelOpen(true);
+      setIsMemoryCollapsed(true);
+    }
+  };
 
   // 全局 Tooltip 状态
   const [tooltipText, setTooltipText] = useState<string>('');
@@ -71,6 +117,8 @@ export default function App() {
     handleApproveInterrupt,
     handleRejectInterrupt,
     handleCancelChat,
+    webSearchEnabled,
+    setWebSearchEnabled,
   } = useChat({
     userID,
     selectedModel,
@@ -139,6 +187,7 @@ export default function App() {
     setCurrentSessionID(id);
     setPendingInterrupt(null);
     setExpandedReasoning({}); // 重置折叠状态
+    setIsSearchPanelOpen(false); // 切换 Session 时自动收起属于 Session 维度的搜索源抽屉
     try {
       const data = await rebuildAndSetMessages(id);
       if (data?.status === 'pending_confirmation') {
@@ -226,7 +275,7 @@ export default function App() {
   };
 
   return (
-    <div className="portal-container">
+    <div className={`portal-container ${isMemoryCollapsed && !isSearchPanelOpen ? 'no-right-panels' : ''}`}>
       <Sidebar
         sessions={sessions}
         currentSessionID={currentSessionID}
@@ -235,6 +284,13 @@ export default function App() {
         userInfo={userInfo}
         userID={userID}
         isDarkMode={isDarkMode}
+        isMemoryCollapsed={isMemoryCollapsed}
+        setIsMemoryCollapsed={(v) => {
+          setIsMemoryCollapsed(v);
+          if (!v) {
+            setIsSearchPanelOpen(false);
+          }
+        }}
         onSelectSession={selectSession}
         onCreateNewSession={createNewSession}
         onToggleTheme={toggleTheme}
@@ -253,17 +309,20 @@ export default function App() {
         selectedModel={selectedModel}
         expandedReasoning={expandedReasoning}
         setExpandedReasoning={setExpandedReasoning}
+        webSearchEnabled={webSearchEnabled}
+        setWebSearchEnabled={setWebSearchEnabled}
         onSendMessage={(text) => handleSendMessage(text, currentSessionID)}
         onApproveInterrupt={() => handleApproveInterrupt(currentSessionID)}
         onRejectInterrupt={handleRejectInterrupt}
         onCancelChat={() => handleCancelChat(currentSessionID)}
         setSelectedModel={setSelectedModel}
-        isMemoryCollapsed={isMemoryCollapsed}
-        setIsMemoryCollapsed={setIsMemoryCollapsed}
         username={userInfo?.username}
         onShowTooltip={handleShowTooltip}
         onMoveTooltip={handleMoveTooltip}
         onHideTooltip={handleHideTooltip}
+        onOpenSearchResults={handleOpenSearchResults}
+        isSearchPanelOpen={isSearchPanelOpen}
+        searchResults={searchResults}
       />
       <MemoryPanel
         userProfile={userProfile}
@@ -271,7 +330,150 @@ export default function App() {
         isEvolving={isEvolving}
         currentSessionID={currentSessionID}
         onEvolveProfile={() => evolveProfile(currentSessionID)}
+        onClose={() => setIsMemoryCollapsed(true)}
+        onShowTooltip={handleShowTooltip}
+        onMoveTooltip={handleMoveTooltip}
+        onHideTooltip={handleHideTooltip}
       />
+      {/* 搜索结果右侧抽屉面板 */}
+      <div className={`search-results-panel ${isSearchPanelOpen ? '' : 'collapsed'}`}>
+        <header className="search-results-header">
+          <div className="search-results-header-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15, flexShrink: 0 }}>
+              <circle cx="12" cy="12" r="10" />
+              <line x1="2" y1="12" x2="22" y2="12" />
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+            <span>Web Sources</span>
+          </div>
+          <button
+            className="search-results-close"
+            onClick={() => setIsSearchPanelOpen(false)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}>
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </header>
+        <div className="search-results-list">
+          {fetchedUrls.size > 0 ? (
+            <>
+              {/* Read Pages 分区头部 */}
+              {searchResults.some(item => fetchedUrls.has(normalizeUrl(item.url))) && (() => {
+                const count = searchResults.filter(item => fetchedUrls.has(normalizeUrl(item.url))).length;
+                return (
+                  <div className="search-results-divider-wrapper">
+                    <span className="search-results-divider">Read Pages</span>
+                    <span className="divider-count-badge read-count">{count}</span>
+                  </div>
+                );
+              })()}
+              {/* 被 fetch_webpage 实际抓取的页面置顶高亮 */}
+              {searchResults.filter(item => fetchedUrls.has(normalizeUrl(item.url))).map((item, sIdx) => (
+                <a key={`fetched-${sIdx}`} href={item.url} target="_blank" rel="noopener noreferrer" className="search-result-item fetched">
+                  <div className="search-result-top">
+                    <span
+                      className="search-result-fetched-icon"
+                      onMouseEnter={(e) => handleShowTooltip("Fully read by AI", e)}
+                      onMouseMove={handleMoveTooltip}
+                      onMouseLeave={handleHideTooltip}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 10, height: 10 }}>
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </span>
+                    <span
+                      className="search-result-title"
+                      onMouseEnter={(e) => handleShowTooltip(item.title, e)}
+                      onMouseMove={handleMoveTooltip}
+                      onMouseLeave={handleHideTooltip}
+                    >
+                      {item.title}
+                    </span>
+                  </div>
+                  <span
+                    className="search-result-url"
+                    onMouseEnter={(e) => handleShowTooltip(item.url, e)}
+                    onMouseMove={handleMoveTooltip}
+                    onMouseLeave={handleHideTooltip}
+                  >
+                    {item.url}
+                  </span>
+                  {item.snippet && <p className="search-result-snippet">{item.snippet}</p>}
+                </a>
+              ))}
+
+              {/* Other Results 分区头部 */}
+              {searchResults.some(item => !fetchedUrls.has(normalizeUrl(item.url))) && (() => {
+                const count = searchResults.filter(item => !fetchedUrls.has(normalizeUrl(item.url))).length;
+                return (
+                  <div className="search-results-divider-wrapper">
+                    <span className="search-results-divider">Other Results</span>
+                    <span className="divider-count-badge other-count">{count}</span>
+                  </div>
+                );
+              })()}
+              {searchResults.filter(item => !fetchedUrls.has(normalizeUrl(item.url))).map((item, sIdx) => (
+                <a key={`search-${sIdx}`} href={item.url} target="_blank" rel="noopener noreferrer" className="search-result-item">
+                  <div className="search-result-top">
+                    <span className="search-result-index">{sIdx + 1}</span>
+                    <span
+                      className="search-result-title"
+                      onMouseEnter={(e) => handleShowTooltip(item.title, e)}
+                      onMouseMove={handleMoveTooltip}
+                      onMouseLeave={handleHideTooltip}
+                    >
+                      {item.title}
+                    </span>
+                  </div>
+                  <span
+                    className="search-result-url"
+                    onMouseEnter={(e) => handleShowTooltip(item.url, e)}
+                    onMouseMove={handleMoveTooltip}
+                    onMouseLeave={handleHideTooltip}
+                  >
+                    {item.url}
+                  </span>
+                  {item.snippet && <p className="search-result-snippet">{item.snippet}</p>}
+                </a>
+              ))}
+            </>
+          ) : (
+            <>
+              {/* All Results 统一头部 */}
+              <div className="search-results-divider-wrapper">
+                <span className="search-results-divider">All Results</span>
+                <span className="divider-count-badge other-count">{searchResults.length}</span>
+              </div>
+              {searchResults.map((item, sIdx) => (
+                <a key={`search-${sIdx}`} href={item.url} target="_blank" rel="noopener noreferrer" className="search-result-item">
+                  <div className="search-result-top">
+                    <span className="search-result-index">{sIdx + 1}</span>
+                    <span
+                      className="search-result-title"
+                      onMouseEnter={(e) => handleShowTooltip(item.title, e)}
+                      onMouseMove={handleMoveTooltip}
+                      onMouseLeave={handleHideTooltip}
+                    >
+                      {item.title}
+                    </span>
+                  </div>
+                  <span
+                    className="search-result-url"
+                    onMouseEnter={(e) => handleShowTooltip(item.url, e)}
+                    onMouseMove={handleMoveTooltip}
+                    onMouseLeave={handleHideTooltip}
+                  >
+                    {item.url}
+                  </span>
+                  {item.snippet && <p className="search-result-snippet">{item.snippet}</p>}
+                </a>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
       <ConfirmModal
         isOpen={sessionToDelete !== null}
         title="删除会话"

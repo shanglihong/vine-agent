@@ -52,7 +52,7 @@ func (t *WebSearchTool) SetSearchURL(url string) {
 func (t *WebSearchTool) Info() tool.Definition {
 	return tool.Definition{
 		Name:        "web_search",
-		Description: "在互联网上搜索与指定查询词相关的最新资讯、网页和文章链接。",
+		Description: "在互联网上搜索与指定查询词相关的最新资讯、网页和文章链接。返回结果为 JSON 格式的网页数组，包含 title, url, snippet 字段。",
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -90,17 +90,14 @@ func (t *WebSearchTool) Execute(ctx context.Context, args string) (string, error
 
 	// 3. 格式化结果输出
 	if len(results) == 0 {
-		return fmt.Sprintf("未找到关于 \"%s\" 的任何相关搜索结果。", params.Query), nil
+		return "[]", nil
 	}
 
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("以下是关于 \"%s\" 的搜索结果：\n\n", params.Query))
-	for i, r := range results {
-		sb.WriteString(fmt.Sprintf("[%d] 标题: %s\n", i+1, r.Title))
-		sb.WriteString(fmt.Sprintf("    链接: %s\n", r.URL))
-		sb.WriteString(fmt.Sprintf("    摘要: %s\n\n", r.Snippet))
+	resBytes, err := json.Marshal(results)
+	if err != nil {
+		return "", fmt.Errorf("序列化搜索结果失败: %w", err)
 	}
-	return sb.String(), nil
+	return string(resBytes), nil
 }
 
 // search 内部通过搜索引擎搜索

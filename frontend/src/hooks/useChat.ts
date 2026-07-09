@@ -17,6 +17,7 @@ interface UseChatOptions {
 export function useChat({ userID, selectedModel, loadSessions, evolveProfile }: UseChatOptions) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
+  const [webSearchEnabled, setWebSearchEnabled] = useState<boolean>(true);
   const [pendingInterrupt, setPendingInterrupt] = useState<{
     session_id: string;
     pending_tools: PendingTool[];
@@ -121,8 +122,13 @@ export function useChat({ userID, selectedModel, loadSessions, evolveProfile }: 
     });
     streamingMsgRef.current = initialAiMsg;
 
+    const activeTools: string[] = ['get_weather', 'get_current_city'];
+    if (webSearchEnabled) {
+      activeTools.push('web_search', 'fetch_webpage');
+    }
+
     try {
-      const res = await sendChatMessage(currentSessionID, userID, text, selectedModel);
+      const res = await sendChatMessage(currentSessionID, userID, text, selectedModel, activeTools);
       await parseSSEResponse(res, currentSessionID);
     } catch (err: any) {
       console.error('流处理异常:', err);
@@ -358,5 +364,7 @@ export function useChat({ userID, selectedModel, loadSessions, evolveProfile }: 
     handleApproveInterrupt,
     handleRejectInterrupt,
     handleCancelChat,
+    webSearchEnabled,
+    setWebSearchEnabled,
   };
 }
