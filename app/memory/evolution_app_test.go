@@ -161,6 +161,60 @@ func TestEvolutionAppService_TriggerEvolution(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	t.Run("filter non-dialogue roles and clear reasoning content", func(t *testing.T) {
+		userID := "user_filter"
+		sessID := "sess_filter"
+
+		sess := session.NewSession(sessID, userID, nil)
+		sess.Messages = []message.Message{
+			{Role: message.RoleSystem, Content: "system instruction"}, // 应过滤
+			{Role: message.RoleUser, Content: "user chat msg"},       // 应保留
+			{Role: message.RoleAssistant, Content: "assistant reply msg", ReasoningContent: "some deep thinking"}, // 应保留，且清空 ReasoningContent
+			{Role: message.RoleTool, Content: "tool run output"}, // 应过滤
+			{
+				Role:    message.RoleAssistant,
+				Content: "assistant calling tool",
+				ToolCalls: []message.ToolCall{
+					{ID: "tc_1"},
+				},
+			}, // 应保留（因为是 assistant），且清空 ReasoningContent
+		}
+
+		mockSessionSvc.EXPECT().GetBatch(gomock.Any(), []string{sessID}).Return(map[string]*session.Session{
+			sessID: sess,
+		}, nil).Times(1)
+
+		mockProfileRepo.EXPECT().GetByUserID(gomock.Any(), userID).Return(nil, nil).Times(1)
+
+		mockEvolutionSvc.EXPECT().Evolve(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, prof any, msgs []message.Message) error {
+				assert.Len(t, msgs, 3)
+
+				// 第一条保留的应该是用户消息
+				assert.Equal(t, message.RoleUser, msgs[0].Role)
+				assert.Equal(t, "user chat msg", msgs[0].Content)
+
+				// 第二条保留的应该是助手消息，且 ReasoningContent 已被清空
+				assert.Equal(t, message.RoleAssistant, msgs[1].Role)
+				assert.Equal(t, "assistant reply msg", msgs[1].Content)
+				assert.Empty(t, msgs[1].ReasoningContent)
+
+				// 第三条保留的应该是助手调用工具消息
+				assert.Equal(t, message.RoleAssistant, msgs[2].Role)
+				assert.Equal(t, "assistant calling tool", msgs[2].Content)
+				assert.Len(t, msgs[2].ToolCalls, 1)
+
+				return nil
+			},
+		).Times(1)
+
+		mockProfileRepo.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+		mockSessionSvc.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+
+		err := appSvc.TriggerEvolution(ctx, []string{sessID})
+		assert.NoError(t, err)
+	})
+
 	t.Run("parallel conflict safety in session retrieving", func(t *testing.T) {
 		// 并发多 session 压力测试，确保没有并发冲突的 Data Race
 		sessCount := 50

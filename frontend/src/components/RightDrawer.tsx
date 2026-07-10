@@ -31,8 +31,8 @@ export default function RightDrawer({
       };
     }
     return {
-      defaultWidth: 450,
-      minWidth: 340,
+      defaultWidth: 300,
+      minWidth: 300,
       maxWidth: 550,
     };
   };

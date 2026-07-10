@@ -3,6 +3,7 @@ import { Message, PendingTool } from '../types';
 import MessageList from './chat/MessageList';
 import InterruptCard from './chat/InterruptCard';
 import InputBar from './chat/InputBar';
+import ChatTimeline from './chat/ChatTimeline';
 
 interface ChatAreaProps {
   messages: Message[];
@@ -57,12 +58,20 @@ export default function ChatArea({
   searchResults,
 }: ChatAreaProps) {
   const [inputValue, setInputValue] = useState<string>('');
+  const [highlightedMessageIdx, setHighlightedMessageIdx] = useState<number | null>(null);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const inputBarRef = useRef<HTMLDivElement | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [inputBarHeight, setInputBarHeight] = useState<number>(106);
+
+  const handleScrollToMessage = (idx: number) => {
+    const el = document.getElementById(`msg-${idx}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   const handleScroll = () => {
     const container = scrollContainerRef.current;
@@ -250,6 +259,7 @@ export default function ChatArea({
           onOpenSearchResults={onOpenSearchResults}
           isSearchPanelOpen={isSearchPanelOpen}
           searchResults={searchResults}
+          highlightedMessageIdx={highlightedMessageIdx}
         />
 
         {/* 敏感工具确认审批卡片 */}
@@ -285,6 +295,15 @@ export default function ChatArea({
 
         <div ref={messageEndRef} />
       </div>
+
+      <ChatTimeline
+        messages={messages}
+        scrollContainerRef={scrollContainerRef}
+        onNodeClick={handleScrollToMessage}
+        onShowTooltip={onShowTooltip}
+        onMoveTooltip={onMoveTooltip}
+        onHideTooltip={onHideTooltip}
+      />
 
       {/* 滚动浮动控制组：高度自适应计算定位，防组件重叠 */}
       <div className="scroll-float-group" style={{ bottom: `${inputBarHeight + 12}px` }}>

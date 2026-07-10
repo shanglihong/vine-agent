@@ -116,6 +116,7 @@ interface MessageListProps {
   onOpenSearchResults: (items: { title: string; url: string; snippet: string }[], fetchedUrls: Set<string>) => void;
   isSearchPanelOpen: boolean;
   searchResults: { title: string; url: string; snippet: string }[];
+  highlightedMessageIdx?: number | null;
 }
 
 export default function MessageList({
@@ -131,6 +132,7 @@ export default function MessageList({
   onOpenSearchResults,
   isSearchPanelOpen,
   searchResults,
+  highlightedMessageIdx,
 }: MessageListProps) {
   if (messages.length === 0) {
     return (
@@ -277,7 +279,11 @@ export default function MessageList({
         const isReasoningExpanded = expandedReasoning[idx] === true;
 
         return (
-          <div key={idx} className={`message-wrapper ${isUser ? 'user' : 'assistant'} ${isStreaming && idx === messages.length - 1 ? 'streaming' : ''}`}>
+          <div
+            key={idx}
+            id={`msg-${idx}`}
+            className={`message-wrapper ${isUser ? 'user' : 'assistant'} ${isStreaming && idx === messages.length - 1 ? 'streaming' : ''} ${highlightedMessageIdx === idx ? 'highlight' : ''}`}
+          >
             {/* 对话头像：USER 和 AI 均在左侧完美对齐呈现 */}
             <div className="message-avatar">
               {isUser ? (

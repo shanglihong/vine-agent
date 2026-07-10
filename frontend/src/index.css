@@ -3,7 +3,8 @@
 /* =========================================================================
    ChatGPT Style Design System - 优雅、极简、高质感双色调设计
    ========================================================================= */
-html, body {
+html,
+body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -291,6 +292,7 @@ body {
   flex-direction: column;
   gap: 2px;
 }
+
 .session-item {
   padding: 6px 10px;
   border-radius: var(--radius-md);
@@ -354,6 +356,7 @@ body {
   color: var(--text-muted);
   flex-shrink: 0;
 }
+
 .status-badge {
   padding: 1px 5px;
   border-radius: 4px;
@@ -637,7 +640,7 @@ body {
 
 
 .user-footer {
-  padding: 14px 18px;
+  padding: 14px 12px;
   border-top: 1px solid var(--border-color);
   background: var(--bg-sidebar);
   font-size: 12.5px;
@@ -1022,9 +1025,12 @@ body {
 }
 
 @keyframes vine-float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-6px);
   }
@@ -1110,14 +1116,17 @@ body {
   background: rgba(26, 115, 232, 0.08);
   color: #1a73e8;
 }
+
 .action-card-icon-wrapper.security {
   background: rgba(16, 185, 129, 0.08);
   color: #10b981;
 }
+
 .action-card-icon-wrapper.memory {
   background: rgba(139, 92, 246, 0.08);
   color: #8b5cf6;
 }
+
 .action-card-icon-wrapper.test {
   background: rgba(245, 158, 11, 0.08);
   color: #f59e0b;
@@ -1127,14 +1136,17 @@ body {
   background: rgba(56, 189, 248, 0.15);
   color: #38bdf8;
 }
+
 .dark .action-card-icon-wrapper.security {
   background: rgba(16, 185, 129, 0.15);
   color: #34d399;
 }
+
 .dark .action-card-icon-wrapper.memory {
   background: rgba(167, 139, 250, 0.15);
   color: #a78bfa;
 }
+
 .dark .action-card-icon-wrapper.test {
   background: rgba(251, 191, 36, 0.15);
   color: #fbbf24;
@@ -2265,9 +2277,9 @@ body {
 .right-drawer-header-title {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   color: var(--text-main);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   flex: 1;
   min-width: 0;
@@ -2513,7 +2525,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 6px;
+  gap: 8px;
   padding: 10px 16px 6px 16px;
   margin: 0 -12px 8px -12px;
   background: color-mix(in srgb, var(--bg-sidebar) 75%, transparent);
@@ -2525,7 +2537,7 @@ body {
 
 .search-results-divider-wrapper:not(:first-child),
 .memory-divider-wrapper:not(:first-child) {
-  margin-top: 16px;
+  margin-top: 28px;
 }
 
 .search-results-divider,
@@ -3461,7 +3473,8 @@ body {
 .markdown-body pre {
   margin: 0 !important;
   padding: 14px 16px !important;
-  background: transparent !important; /* 让外层 wrapper 的 background 起效 */
+  background: transparent !important;
+  /* 让外层 wrapper 的 background 起效 */
   overflow-x: auto;
 }
 
@@ -3478,4 +3491,208 @@ body {
 
 .dark .markdown-body pre code {
   color: #e3e3e3;
+}
+
+/* =========================================================================
+   左侧极简绽放时间轴导航 (ChatTimeline)
+   ========================================================================= */
+.chat-timeline {
+  position: absolute;
+  /* 固定悬浮在主交互区最左侧边缘（紧贴侧边栏分割线） */
+  left: 16px;
+  top: 80px;
+  max-height: calc(100% - 180px);
+  width: 32px;
+  /* 默认极窄折叠状态，占用极少空间 */
+  background: transparent;
+  /* 极薄半透明底色以形成轨道感 */
+  border: none;
+  border-radius: 12px;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  z-index: 100;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+/* 暗色模式轨道底色 */
+.dark .chat-timeline {
+  background: transparent;
+  border-color: transparent;
+}
+
+.chat-timeline::-webkit-scrollbar {
+  display: none;
+}
+
+/* 时间轴内部的垂直连线 */
+.timeline-track {
+  position: absolute;
+  left: 15px;
+  /* 32px 容器的中线 (16px)，因为线宽 2px，所以 left: 15px */
+  top: 18px;
+  bottom: 18px;
+  width: 2px;
+  background-image: linear-gradient(to bottom, var(--text-muted) 60%, transparent 40%);
+  background-size: 1px 6px;
+  /* 虚线效果 */
+  background-repeat: repeat-y;
+  z-index: 1;
+  transition: opacity 0.3s ease;
+  opacity: 0.4;
+  /* 调高透明度，清晰指引 */
+}
+
+/* 鼠标悬停在时间轴节点时，虚线轨道呈现微亮动效 */
+.chat-timeline:has(.timeline-node-container:hover) .timeline-track {
+  opacity: 0.7;
+}
+
+/* 节点容器 */
+.timeline-node-container {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
+  z-index: 2;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+/* 节点圆圈：默认 8px 空心微珍珠圈，高对比度识别设计 */
+.timeline-node-circle {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bg-main);
+  border: 1.5px solid rgba(0, 0, 0, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0;
+  transition: width 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.2),
+    height 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.2),
+    background-color 0.25s,
+    border-color 0.25s,
+    box-shadow 0.25s,
+    transform 0.2s;
+  flex-shrink: 0;
+  box-shadow: none;
+}
+
+.dark .timeline-node-circle {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+/* 内部图标默认缩微隐藏 */
+.timeline-node-circle .node-icon {
+  opacity: 0;
+  transform: scale(0.3);
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.2);
+  color: inherit;
+  flex-shrink: 0;
+}
+
+/* 提问节点 (User) 激活状态：实心淡灰指示珍珠点，高可见度 */
+.timeline-node-container.user.active .timeline-node-circle {
+  background: var(--text-muted);
+  border-color: var(--text-muted);
+}
+
+/* 回答节点 (Assistant) 激活状态：实心蓝色指示珍珠点，高可见度 */
+.timeline-node-container.assistant.active .timeline-node-circle {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+/* 鼠标悬停时节点圆圈优雅膨胀展开 */
+.timeline-node-container:hover .timeline-node-circle {
+  width: 26px;
+  height: 26px;
+  transform: scale(1.05);
+}
+
+.timeline-node-container:hover .timeline-node-circle .node-icon {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* 悬停时的各自高亮与低对比度不透明实体背景颜色 */
+.timeline-node-container.user:hover .timeline-node-circle {
+  border-color: rgba(0, 0, 0, 0.15);
+  background: #f4f4f5;
+  color: var(--text-secondary);
+}
+
+.dark .timeline-node-container.user:hover .timeline-node-circle {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: #2a2b2f;
+  color: var(--text-muted);
+}
+
+.timeline-node-container.assistant:hover .timeline-node-circle {
+  border-color: rgba(26, 115, 232, 0.45);
+  background: #d2e3fc;
+  color: var(--primary-color);
+}
+
+.dark .timeline-node-container.assistant:hover .timeline-node-circle {
+  border-color: rgba(26, 115, 232, 0.6);
+  background: #213d68;
+  color: var(--primary-color);
+}
+
+
+/* 响应式媒体查询：窄屏设备隐藏时间轴 */
+@media (max-width: 768px) {
+  .chat-timeline {
+    display: none !important;
+  }
+}
+
+/* =========================================================================
+   消息卡片定位精准高亮动效
+   ========================================================================= */
+@keyframes bubble-highlight-user {
+  0% {
+    box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 0 6px rgba(26, 115, 232, 0.6);
+  }
+
+  100% {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  }
+}
+
+@keyframes bubble-highlight-assistant {
+  0% {
+    background-color: rgba(26, 115, 232, 0.08);
+  }
+
+  50% {
+    background-color: rgba(26, 115, 232, 0.15);
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* 消息包装器高亮，给用户和助手消息应用不同的闪烁动效 */
+.message-wrapper.user.highlight .chat-bubble {
+  animation: bubble-highlight-user 1.5s ease-in-out;
+}
+
+.message-wrapper.assistant.highlight {
+  animation: bubble-highlight-assistant 1.5s ease-in-out;
+  border-radius: 8px;
+  padding: 4px;
 }

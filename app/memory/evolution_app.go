@@ -52,13 +52,24 @@ func (a *EvolutionAppService) TriggerEvolution(ctx context.Context, sessionIDs [
 		go func(userID string, sList []*session.Session) {
 			defer evolveWg.Done()
 
-			// 合并该用户所有会话中的未进化增量消息
+			// 合并该用户所有会话中的未进化增量消息，过滤非对话消息并清除思考内容
 			var combinedMessages []message.Message
 			for _, sess := range sList {
 				lastCount := sess.GetLastEvolvedMsgCount()
 				currentCount := len(sess.Messages)
 				if currentCount > lastCount {
-					combinedMessages = append(combinedMessages, sess.Messages[lastCount:currentCount]...)
+					for _, msg := range sess.Messages[lastCount:currentCount] {
+						// 仅保留对话角色消息（user 和 assistant）
+						if msg.Role != message.RoleUser && msg.Role != message.RoleAssistant {
+							continue
+						}
+
+						// 过滤思考推导消息，将其 ReasoningContent 置空，只保留 Content
+						cleanMsg := msg
+						cleanMsg.ReasoningContent = ""
+
+						combinedMessages = append(combinedMessages, cleanMsg)
+					}
 				}
 			}
 
