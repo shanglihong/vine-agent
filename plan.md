@@ -42,7 +42,7 @@
 #### 1. 常用工具拓展与动态 Registry 机制
 *   **目标**：让大模型具备在限定范围内读取本地文件与进行网页检索的能力。
 *   **具体任务**：
-    - [ ] **BE FE 删除mock工具**
+    - [x] **BE FE 删除mock工具**
     - [ ] **本地文件工具**：在 [infra/tools](infra/tools)（参考 [doc/tool.md](doc/tool.md)）中实现 `ReadFilesTool`, `WriteFileTool`, `ListDirTool`。
     - [x] **Web 检索工具**：实现网页爬取与信息搜集工具，用于获取外部最新资讯。
     - [ ] **动态 Registry 注册表**：在 `domain/tool` 引入 `Registry` 服务，支持按照 Project 级别的元配置动态注入和启用所需的工具集合。

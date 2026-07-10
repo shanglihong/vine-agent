@@ -13,6 +13,7 @@ import (
 
 	"vine-agent/app/agent"
 	memory_app "vine-agent/app/memory"
+	project_app "vine-agent/app/project"
 	user_app "vine-agent/app/user"
 	"vine-agent/config"
 	"vine-agent/domain/chat"
@@ -20,6 +21,7 @@ import (
 	"vine-agent/domain/memory/profile"
 	"vine-agent/domain/memory/session"
 	"vine-agent/domain/message"
+	"vine-agent/domain/project"
 	"vine-agent/domain/tool"
 	"vine-agent/domain/user"
 	"vine-agent/infra/api"
@@ -41,6 +43,10 @@ func main() {
 	sessionStore, err := sqlite.NewSessionStore(cfg.Storage.SQLiteDBPath)
 	if err != nil {
 		logger.Fatalf("初始化 SQLite 会话仓储失败: %v", err)
+	}
+	projectStore, err := sqlite.NewProjectStore(cfg.Storage.SQLiteDBPath)
+	if err != nil {
+		logger.Fatalf("初始化 SQLite 项目仓储失败: %v", err)
 	}
 	profileRepo := file.NewFileProfileRepository(cfg.Storage.ProfileDir)
 	userStore, err := sqlite.NewUserStore(cfg.Storage.SQLiteDBPath)
@@ -79,12 +85,14 @@ func main() {
 	sessionSvc := session.NewSessionService(sessionStore)
 	evolutionSvc := profile.NewEvolutionService(llmExtractor)
 	userDomainSvc := user.NewUserService(userStore)
+	projectDomainSvc := project.NewProjectService(projectStore, sessionSvc)
 
 	// 5. 初始化应用层服务
 	agentSvc := agent.NewService(chatModel, sessionSvc)
 	interactionSvc := agent.NewInteractionService(agentSvc, sessionSvc)
 	evolutionAppSvc := memory_app.NewEvolutionAppService(sessionSvc, profileRepo, evolutionSvc)
 	userAppSvc := user_app.NewUserAppService(userDomainSvc)
+	projectAppSvc := project_app.NewProjectAppService(projectDomainSvc)
 
 	// 启动统一的定时任务调度器 (使用 cron 统一管理)
 	cronScheduler := scheduler.NewCronScheduler(logger)
@@ -100,7 +108,7 @@ func main() {
 		tools.NewWebSearchTool(),
 		tools.NewWebCrawlTool(),
 	}
-	handler := api.NewAPIHandler(agentSvc, interactionSvc, sessionSvc, profileRepo, evolutionAppSvc, userAppSvc, appTools, logger)
+	handler := api.NewAPIHandler(agentSvc, interactionSvc, sessionSvc, profileRepo, evolutionAppSvc, userAppSvc, projectAppSvc, appTools, logger)
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 

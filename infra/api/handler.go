@@ -10,6 +10,7 @@ import (
 
 	"vine-agent/app/agent"
 	memory_app "vine-agent/app/memory"
+	project_app "vine-agent/app/project"
 	user_app "vine-agent/app/user"
 	"vine-agent/domain/memory/profile"
 	"vine-agent/domain/memory/session"
@@ -24,6 +25,7 @@ type APIHandler struct {
 	profileRepo     profile.ProfileRepository
 	evolutionAppSvc *memory_app.EvolutionAppService
 	userAppSvc      *user_app.UserAppService
+	projectAppSvc   *project_app.ProjectAppService
 	logger          *log.Logger
 	tools           map[string]tool.Tool
 	activeStreams   sync.Map // 保存 session_id -> message.StreamMessageReader 的映射
@@ -37,6 +39,7 @@ func NewAPIHandler(
 	profileRepo profile.ProfileRepository,
 	evolutionAppSvc *memory_app.EvolutionAppService,
 	userAppSvc *user_app.UserAppService,
+	projectAppSvc *project_app.ProjectAppService,
 	tools []tool.Tool,
 	logger *log.Logger,
 ) *APIHandler {
@@ -51,6 +54,7 @@ func NewAPIHandler(
 		profileRepo:     profileRepo,
 		evolutionAppSvc: evolutionAppSvc,
 		userAppSvc:      userAppSvc,
+		projectAppSvc:   projectAppSvc,
 		logger:          logger,
 		tools:           toolsMap,
 	}
@@ -111,4 +115,12 @@ func (h *APIHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/user", h.GetUser)
 	mux.HandleFunc("GET /api/users/{id}/profile", h.GetUserProfile)
 	mux.HandleFunc("POST /api/users/{id}/evolve", h.Evolve)
+
+	// 项目路由挂载
+	mux.HandleFunc("POST /api/projects", h.CreateProject)
+	mux.HandleFunc("GET /api/projects", h.ListProjects)
+	mux.HandleFunc("GET /api/projects/{id}", h.GetProject)
+	mux.HandleFunc("PUT /api/projects/{id}", h.UpdateProject)
+	mux.HandleFunc("DELETE /api/projects/{id}", h.DeleteProject)
+	mux.HandleFunc("GET /api/projects/{id}/sessions", h.ListProjectSessions)
 }
