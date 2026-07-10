@@ -277,7 +277,7 @@ export function useChat({ userID, selectedModel, loadSessions, evolveProfile }: 
             };
             msg.timeline = [...(msg.timeline || []), item];
           });
-        } catch {}
+        } catch { }
         break;
 
       case 'tool_result':
@@ -301,7 +301,7 @@ export function useChat({ userID, selectedModel, loadSessions, evolveProfile }: 
             }
             msg.timeline = tl;
           });
-        } catch {}
+        } catch { }
         break;
 
       case 'interrupt':
@@ -310,7 +310,7 @@ export function useChat({ userID, selectedModel, loadSessions, evolveProfile }: 
           setPendingInterrupt(interruptData);
           setIsStreaming(false);
           loadSessions(); // 刷新 sidebar 中会话的 pending 状态
-        } catch {}
+        } catch { }
         break;
 
       case 'done':
@@ -329,7 +329,7 @@ export function useChat({ userID, selectedModel, loadSessions, evolveProfile }: 
           updateLastAiMessage((msg) => {
             msg.content += `\n【系统错误】${errObj.message}`;
           });
-        } catch {}
+        } catch { }
         setIsStreaming(false);
         break;
 

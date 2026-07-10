@@ -108,6 +108,9 @@ func main() {
 	appTools := []tool.Tool{
 		tools.NewWebSearchTool(),
 		tools.NewWebCrawlTool(),
+		tools.NewListDirTool(),
+		tools.NewReadFilesTool(),
+		tools.NewWriteFileTool(),
 	}
 	handler := api.NewAPIHandler(agentSvc, interactionSvc, sessionSvc, profileRepo, evolutionAppSvc, userAppSvc, projectAppSvc, sessionAppSvc, appTools, logger)
 	mux := http.NewServeMux()
@@ -234,6 +237,63 @@ func (m *mockChatModel) Stream(ctx context.Context, messages []message.Message, 
 					Function: message.FunctionCall{
 						Name:      "fetch_webpage",
 						Arguments: `{"url":"https://go.dev/blog/go1.25"}`,
+					},
+				},
+			}
+			return
+		}
+
+		// 4.3 检查是否触发列出目录
+		if strings.Contains(userText, "目录") || strings.Contains(userText, "文件夹") || strings.Contains(userText, "list") || strings.Contains(userText, "ls") {
+			ch <- &message.StreamMessage{Type: message.StreamMessageReasoningDelta, Content: "▶ 识别到需要列出目录。路由至外部工具 [list_dir]...\n"}
+			time.Sleep(300 * time.Millisecond)
+
+			ch <- &message.StreamMessage{
+				Type: message.StreamMessageToolCall,
+				ToolCall: &message.ToolCall{
+					ID:   "call_listdir_mock_" + fmt.Sprintf("%d", time.Now().Unix()),
+					Type: "function",
+					Function: message.FunctionCall{
+						Name:      "list_dir",
+						Arguments: `{"path":"."}`,
+					},
+				},
+			}
+			return
+		}
+
+		// 4.4 检查是否触发写文件
+		if strings.Contains(userText, "写文件") || strings.Contains(userText, "创建文件") || strings.Contains(userText, "write") {
+			ch <- &message.StreamMessage{Type: message.StreamMessageReasoningDelta, Content: "▶ 识别到需要写入文件。路由至外部工具 [write_file]...\n"}
+			time.Sleep(300 * time.Millisecond)
+
+			ch <- &message.StreamMessage{
+				Type: message.StreamMessageToolCall,
+				ToolCall: &message.ToolCall{
+					ID:   "call_writefile_mock_" + fmt.Sprintf("%d", time.Now().Unix()),
+					Type: "function",
+					Function: message.FunctionCall{
+						Name:      "write_file",
+						Arguments: `{"path":"data/test.txt","content":"Hello from mock!"}`,
+					},
+				},
+			}
+			return
+		}
+
+		// 4.5 检查是否触发读文件
+		if strings.Contains(userText, "读文件") || strings.Contains(userText, "查看文件") || strings.Contains(userText, "read") {
+			ch <- &message.StreamMessage{Type: message.StreamMessageReasoningDelta, Content: "▶ 识别到需要读取文件。路由至外部工具 [read_files]...\n"}
+			time.Sleep(300 * time.Millisecond)
+
+			ch <- &message.StreamMessage{
+				Type: message.StreamMessageToolCall,
+				ToolCall: &message.ToolCall{
+					ID:   "call_readfiles_mock_" + fmt.Sprintf("%d", time.Now().Unix()),
+					Type: "function",
+					Function: message.FunctionCall{
+						Name:      "read_files",
+						Arguments: `{"paths":["data/test.txt"]}`,
 					},
 				},
 			}

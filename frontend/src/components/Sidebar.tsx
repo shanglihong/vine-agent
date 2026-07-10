@@ -256,15 +256,7 @@ export default function Sidebar({
           )}
           {(s.status === 'pending_confirmation' ||
             (s.id === currentSessionID && pendingInterrupt)) && (
-              <span
-                className="status-badge pending"
-                style={{
-                  marginLeft: '6px',
-                  fontSize: '9px',
-                  padding: '1.5px 5px',
-                  lineHeight: 1,
-                }}
-              >
+              <span className="status-badge pending">
                 PENDING
               </span>
             )}
@@ -370,17 +362,6 @@ export default function Sidebar({
                 onClick={() => toggleProjectCollapse(proj.id)}
               >
                 <svg
-                  className={`collapse-arrow ${isCollapsed ? 'collapsed' : ''}`}
-                  viewBox="0 0 24 24"
-                  width="12"
-                  height="12"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                >
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-                <svg
                   className="project-group-icon"
                   viewBox="0 0 24 24"
                   width="12"
@@ -446,7 +427,7 @@ export default function Sidebar({
                 </div>
               </div>
 
-              {!isCollapsed && (
+              {!isCollapsed && projectSessions.length > 0 && (
                 <div className="project-sessions-container">
                   {projectSessions.map((s) => renderSessionItem(s))}
                 </div>

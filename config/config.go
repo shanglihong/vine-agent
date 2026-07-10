@@ -36,7 +36,7 @@ func DefaultConfig() *Config {
 	cfg.Server.Port = ":8080"
 	cfg.Storage.ProfileDir = filepath.Join(utils.FindProjectRoot(), "data", "profile")
 	cfg.Storage.SQLiteDBPath = filepath.Join(utils.FindProjectRoot(), "data", "db", "memory.db")
-	cfg.Storage.ProjectRootDir = filepath.Join(utils.FindProjectRoot(), "project")
+	cfg.Storage.ProjectRootDir = filepath.Join(utils.FindProjectRoot(), "data", "project")
 	return &cfg
 }
 

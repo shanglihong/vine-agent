@@ -79,6 +79,21 @@ func (mr *MockProjectRepositoryMockRecorder) Get(ctx, id interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockProjectRepository)(nil).Get), ctx, id)
 }
 
+// GetProjectBySession mocks base method.
+func (m *MockProjectRepository) GetProjectBySession(ctx context.Context, sessionID string) (*project.Project, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProjectBySession", ctx, sessionID)
+	ret0, _ := ret[0].(*project.Project)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProjectBySession indicates an expected call of GetProjectBySession.
+func (mr *MockProjectRepositoryMockRecorder) GetProjectBySession(ctx, sessionID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProjectBySession", reflect.TypeOf((*MockProjectRepository)(nil).GetProjectBySession), ctx, sessionID)
+}
+
 // List mocks base method.
 func (m *MockProjectRepository) List(ctx context.Context, userID string) ([]*project.Project, error) {
 	m.ctrl.T.Helper()
@@ -217,6 +232,21 @@ func (m *MockProjectService) GetProject(ctx context.Context, id string) (*projec
 func (mr *MockProjectServiceMockRecorder) GetProject(ctx, id interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProject", reflect.TypeOf((*MockProjectService)(nil).GetProject), ctx, id)
+}
+
+// GetProjectBySession mocks base method.
+func (m *MockProjectService) GetProjectBySession(ctx context.Context, sessionID string) (*project.Project, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProjectBySession", ctx, sessionID)
+	ret0, _ := ret[0].(*project.Project)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProjectBySession indicates an expected call of GetProjectBySession.
+func (mr *MockProjectServiceMockRecorder) GetProjectBySession(ctx, sessionID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProjectBySession", reflect.TypeOf((*MockProjectService)(nil).GetProjectBySession), ctx, sessionID)
 }
 
 // ListProjects mocks base method.

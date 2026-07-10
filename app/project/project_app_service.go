@@ -56,3 +56,8 @@ func (a *ProjectAppService) ListSessionsByProject(ctx context.Context, projectID
 func (a *ProjectAppService) ListUnclassifiedSessions(ctx context.Context, userID string) ([]*session.Session, error) {
 	return a.projectSvc.ListUnclassifiedSessions(ctx, userID)
 }
+
+// GetProjectBySession 根据 sessionID 获取关联的项目。如果未关联任何项目，返回 ErrProjectNotFound
+func (a *ProjectAppService) GetProjectBySession(ctx context.Context, sessionID string) (*project.Project, error) {
+	return a.projectSvc.GetProjectBySession(ctx, sessionID)
+}

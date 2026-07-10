@@ -10,7 +10,20 @@ const (
 	sessionIDKey            contextKey = "session_id"
 	userIDKey               contextKey = "user_id"
 	confirmedToolCallIDsKey contextKey = "confirmed_tool_call_ids"
+	projectIDKey            contextKey = "project_id"
+	projectPathKey          contextKey = "project_path"
 )
+
+// WithProjectID 将项目 ID 注入 Context 中
+func WithProjectID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, projectIDKey, id)
+}
+
+// GetProjectID 从 Context 中提取项目 ID
+func GetProjectID(ctx context.Context) (string, bool) {
+	val, ok := ctx.Value(projectIDKey).(string)
+	return val, ok
+}
 
 // WithConfirmedToolCallIDs 将已确认的 ToolCall ID 列表注入 context
 func WithConfirmedToolCallIDs(ctx context.Context, ids []string) context.Context {
@@ -53,4 +66,15 @@ func GetUserID(ctx context.Context) string {
 		return "default_user"
 	}
 	return val
+}
+
+// WithProjectPath 将项目物理路径注入 Context 中
+func WithProjectPath(ctx context.Context, path string) context.Context {
+	return context.WithValue(ctx, projectPathKey, path)
+}
+
+// GetProjectPath 从 Context 中提取项目物理路径
+func GetProjectPath(ctx context.Context) (string, bool) {
+	val, ok := ctx.Value(projectPathKey).(string)
+	return val, ok
 }

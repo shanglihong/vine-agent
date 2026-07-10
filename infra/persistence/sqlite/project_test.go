@@ -218,3 +218,41 @@ func TestProjectStore_BindAndListSessions(t *testing.T) {
 		t.Errorf("expected only sess-3 as unclassified, got %v", unclassified)
 	}
 }
+
+func TestProjectStore_GetProjectBySession(t *testing.T) {
+	clearProjectTestData(t)
+	defer clearProjectTestData(t)
+
+	store := newTestProjectStore(t)
+	ctx := context.Background()
+
+	// 1. 创建并保存项目
+	proj := buildTestProject("proj-test-session", "user-1")
+	if err := store.Save(ctx, proj); err != nil {
+		t.Fatalf("Save project: %v", err)
+	}
+
+	// 2. 绑定会话到项目
+	sessionID := "session-bound-1"
+	if err := store.BindSession(ctx, proj.ID, sessionID); err != nil {
+		t.Fatalf("BindSession: %v", err)
+	}
+
+	// 3. 测试通过 SessionID 获取项目
+	got, err := store.GetProjectBySession(ctx, sessionID)
+	if err != nil {
+		t.Fatalf("GetProjectBySession: %v", err)
+	}
+	if got.ID != proj.ID {
+		t.Errorf("expected project ID %q, got %q", proj.ID, got.ID)
+	}
+	if got.Path != proj.Path {
+		t.Errorf("expected project Path %q, got %q", proj.Path, got.Path)
+	}
+
+	// 4. 测试未绑定的 SessionID
+	_, err = store.GetProjectBySession(ctx, "session-unbound-999")
+	if !errors.Is(err, project.ErrProjectNotFound) {
+		t.Errorf("expected ErrProjectNotFound, got: %v", err)
+	}
+}

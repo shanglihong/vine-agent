@@ -174,3 +174,11 @@ func (s *projectService) ListUnclassifiedSessions(ctx context.Context, userID st
 	}
 	return list, nil
 }
+
+// GetProjectBySession 根据 sessionID 获取关联的项目。如果未关联任何项目，返回 ErrProjectNotFound
+func (s *projectService) GetProjectBySession(ctx context.Context, sessionID string) (*Project, error) {
+	if sessionID == "" {
+		return nil, fmt.Errorf("sessionID cannot be empty")
+	}
+	return s.repo.GetProjectBySession(ctx, sessionID)
+}

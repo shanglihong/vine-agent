@@ -158,21 +158,10 @@ func (h *APIHandler) Chat(w http.ResponseWriter, r *http.Request) {
 		h.respondError(w, http.StatusBadRequest, "message is required")
 		return
 	}
-	if req.UserID == "" {
-		// 从 sessionId 换取 userId
-		sess, err := h.sessionSvc.Get(r.Context(), sessionID)
-		if err == nil && sess != nil {
-			req.UserID = sess.UserID
-		}
+	ctx := r.Context()
+	if req.UserID != "" && req.UserID != agent.GetUserID(ctx) {
+		ctx = agent.WithUserID(ctx, req.UserID)
 	}
-	if req.UserID == "" {
-		h.respondError(w, http.StatusBadRequest, "user_id is required and could not be inferred from session")
-		return
-	}
-
-	// 构造 context，注入 UserID 和 SessionID
-	ctx := agent.WithUserID(r.Context(), req.UserID)
-	ctx = agent.WithSessionID(ctx, sessionID)
 
 	// 调用智能体流式生成
 	userMsg := message.Message{
@@ -187,8 +176,14 @@ func (h *APIHandler) Chat(w http.ResponseWriter, r *http.Request) {
 		for _, name := range req.Tools {
 			enabled[name] = true
 		}
+		// 默认开启的文件工具列表
+		fileTools := map[string]bool{
+			"read_files": true,
+			"write_file": true,
+			"list_dir":   true,
+		}
 		for _, t := range h.tools {
-			if enabled[t.Info().Name] {
+			if enabled[t.Info().Name] || fileTools[t.Info().Name] {
 				toolsList = append(toolsList, t)
 			}
 		}
@@ -276,20 +271,10 @@ func (h *APIHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.UserID == "" {
-		// 从 sessionId 换取 userId
-		sess, err := h.sessionSvc.Get(r.Context(), sessionID)
-		if err == nil && sess != nil {
-			req.UserID = sess.UserID
-		}
+	ctx := r.Context()
+	if req.UserID != "" && req.UserID != agent.GetUserID(ctx) {
+		ctx = agent.WithUserID(ctx, req.UserID)
 	}
-	if req.UserID == "" {
-		h.respondError(w, http.StatusBadRequest, "user_id is required and could not be inferred from session")
-		return
-	}
-
-	ctx := agent.WithUserID(r.Context(), req.UserID)
-	ctx = agent.WithSessionID(ctx, sessionID)
 
 	// 构建大模型工具参数
 	toolsList := make([]tool.Tool, 0, len(h.tools))
@@ -298,8 +283,14 @@ func (h *APIHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 		for _, name := range req.Tools {
 			enabled[name] = true
 		}
+		// 默认开启的文件工具列表
+		fileTools := map[string]bool{
+			"read_files": true,
+			"write_file": true,
+			"list_dir":   true,
+		}
 		for _, t := range h.tools {
-			if enabled[t.Info().Name] {
+			if enabled[t.Info().Name] || fileTools[t.Info().Name] {
 				toolsList = append(toolsList, t)
 			}
 		}

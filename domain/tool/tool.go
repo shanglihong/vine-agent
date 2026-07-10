@@ -20,7 +20,7 @@ type Tool interface {
 type Definition struct {
 	Name                 string `json:"name"`
 	Description          string `json:"description"`
-	Parameters           any    `json:"parameters"` // 通常为 JSON Schema（可以为 map[string]any 或结构体）
+	Parameters           any    `json:"parameters"`                      // 通常为 JSON Schema（可以为 map[string]any 或结构体）
 	RequiresConfirmation bool   `json:"requires_confirmation,omitempty"` // 是否需要人工确认
 }
 

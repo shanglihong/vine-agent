@@ -278,3 +278,49 @@ func (s *ProjectStore) ListUnclassifiedSessions(ctx context.Context, userID stri
 
 	return sessionIDs, nil
 }
+
+// GetProjectBySession 根据 sessionID 获取关联的项目。如果未关联任何项目，返回 ErrProjectNotFound
+func (s *ProjectStore) GetProjectBySession(ctx context.Context, sessionID string) (*project.Project, error) {
+	query := `
+	SELECT p.id, p.user_id, p.name, p.path, p.description, p.metadata, p.created_at, p.updated_at 
+	FROM projects p 
+	JOIN project_sessions ps ON p.id = ps.project_id 
+	WHERE ps.session_id = ?
+	`
+	row := s.db.QueryRowContext(ctx, query, sessionID)
+
+	var (
+		projID       string
+		userID       string
+		name         string
+		path         string
+		description  string
+		metadataText string
+		createdAt    time.Time
+		updatedAt    time.Time
+	)
+
+	err := row.Scan(&projID, &userID, &name, &path, &description, &metadataText, &createdAt, &updatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, project.ErrProjectNotFound
+		}
+		return nil, fmt.Errorf("failed to query project by session %s: %w", sessionID, err)
+	}
+
+	var metadata map[string]string
+	if err := json.Unmarshal([]byte(metadataText), &metadata); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal metadata for project %s: %w", projID, err)
+	}
+
+	return &project.Project{
+		ID:          projID,
+		UserID:      userID,
+		Name:        name,
+		Path:        path,
+		Description: description,
+		Metadata:    metadata,
+		CreatedAt:   createdAt,
+		UpdatedAt:   updatedAt,
+	}, nil
+}

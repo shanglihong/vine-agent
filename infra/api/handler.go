@@ -112,8 +112,14 @@ func (h *APIHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/sessions/{id}/messages", h.GetSessionMessages)
 	mux.HandleFunc("DELETE /api/sessions/{id}", h.DeleteSession)
 	mux.HandleFunc("POST /api/sessions/{id}/rename", h.RenameSession)
-	mux.HandleFunc("POST /api/sessions/{id}/chat", h.Chat)
-	mux.HandleFunc("POST /api/sessions/{id}/confirm", h.Confirm)
+
+	// 使用中间件包装 Chat 和 Confirm 路由以自动注入 session / project 上下文
+	withSessionCtx := func(hf http.HandlerFunc) http.Handler {
+		return h.SessionContextMiddleware(hf)
+	}
+	mux.Handle("POST /api/sessions/{id}/chat", withSessionCtx(h.Chat))
+	mux.Handle("POST /api/sessions/{id}/confirm", withSessionCtx(h.Confirm))
+
 	mux.HandleFunc("POST /api/sessions/{id}/cancel", h.Cancel)
 	mux.HandleFunc("GET /api/user", h.GetUser)
 	mux.HandleFunc("GET /api/users/{id}/profile", h.GetUserProfile)
@@ -126,4 +132,35 @@ func (h *APIHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/projects/{id}", h.UpdateProject)
 	mux.HandleFunc("DELETE /api/projects/{id}", h.DeleteProject)
 	mux.HandleFunc("GET /api/projects/{id}/sessions", h.ListProjectSessions)
+}
+
+// SessionContextMiddleware 是针对 Chat/Confirm 路由的会话与项目上下文注入中间件
+func (h *APIHandler) SessionContextMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		sessionID := r.PathValue("id")
+		if sessionID == "" {
+			sessionID = r.URL.Query().Get("session_id")
+		}
+
+		if sessionID != "" {
+			ctx = agent.WithSessionID(ctx, sessionID)
+
+			// 1. 根据会话获取所属 userID
+			sess, err := h.sessionSvc.Get(ctx, sessionID)
+			if err == nil && sess != nil {
+				ctx = agent.WithUserID(ctx, sess.UserID)
+			}
+
+			// 2. 获取关联的项目及其本地物理路径并注入
+			proj, err := h.projectAppSvc.GetProjectBySession(ctx, sessionID)
+			if err == nil && proj != nil {
+				ctx = agent.WithProjectPath(ctx, proj.Path)
+				ctx = agent.WithProjectID(ctx, proj.ID)
+			}
+		}
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }

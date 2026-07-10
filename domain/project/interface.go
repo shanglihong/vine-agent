@@ -36,6 +36,9 @@ type ProjectRepository interface {
 
 	// ListUnclassifiedSessions 查找属于该用户但未归属任何项目的会话 ID 列表
 	ListUnclassifiedSessions(ctx context.Context, userID string) ([]string, error)
+
+	// GetProjectBySession 根据 sessionID 获取关联的项目。如果未关联任何项目，返回 ErrProjectNotFound
+	GetProjectBySession(ctx context.Context, sessionID string) (*Project, error)
 }
 
 // ProjectService 定义了 Project 领域服务的核心操作契约
@@ -50,4 +53,7 @@ type ProjectService interface {
 	BindSession(ctx context.Context, projectID string, sessionID string) error
 	ListSessionsByProject(ctx context.Context, projectID string) ([]*session.Session, error)
 	ListUnclassifiedSessions(ctx context.Context, userID string) ([]*session.Session, error)
+
+	// GetProjectBySession 根据 sessionID 获取关联的项目。如果未关联任何项目，返回 ErrProjectNotFound
+	GetProjectBySession(ctx context.Context, sessionID string) (*Project, error)
 }
