@@ -18,8 +18,8 @@ func NewProjectAppService(projectSvc project.ProjectService) *ProjectAppService 
 }
 
 // CreateProject 编排创建项目
-func (a *ProjectAppService) CreateProject(ctx context.Context, userID, name, path, desc string, metadata map[string]string) (*project.Project, error) {
-	return a.projectSvc.CreateProject(ctx, userID, name, path, desc, metadata)
+func (a *ProjectAppService) CreateProject(ctx context.Context, userID, name, desc string, metadata map[string]string) (*project.Project, error) {
+	return a.projectSvc.CreateProject(ctx, userID, name, desc, metadata)
 }
 
 // GetProject 获取项目详情
@@ -28,8 +28,8 @@ func (a *ProjectAppService) GetProject(ctx context.Context, id string) (*project
 }
 
 // UpdateProject 更新项目信息
-func (a *ProjectAppService) UpdateProject(ctx context.Context, id, name, path, desc string, metadata map[string]string) (*project.Project, error) {
-	return a.projectSvc.UpdateProject(ctx, id, name, path, desc, metadata)
+func (a *ProjectAppService) UpdateProject(ctx context.Context, id, name, desc string, metadata map[string]string) (*project.Project, error) {
+	return a.projectSvc.UpdateProject(ctx, id, name, desc, metadata)
 }
 
 // DeleteProject 删除项目（物理级联删除属于该项目的所有会话与消息）

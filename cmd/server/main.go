@@ -85,7 +85,7 @@ func main() {
 	sessionSvc := session.NewSessionService(sessionStore)
 	evolutionSvc := profile.NewEvolutionService(llmExtractor)
 	userDomainSvc := user.NewUserService(userStore)
-	projectDomainSvc := project.NewProjectService(projectStore, sessionSvc)
+	projectDomainSvc := project.NewProjectService(projectStore, sessionSvc, cfg.Storage.ProjectRootDir)
 
 	// 5. 初始化应用层服务
 	agentSvc := agent.NewService(chatModel, sessionSvc)

@@ -40,9 +40,9 @@ type ProjectRepository interface {
 
 // ProjectService 定义了 Project 领域服务的核心操作契约
 type ProjectService interface {
-	CreateProject(ctx context.Context, userID, name, path, desc string, metadata map[string]string) (*Project, error)
+	CreateProject(ctx context.Context, userID, name, desc string, metadata map[string]string) (*Project, error)
 	GetProject(ctx context.Context, id string) (*Project, error)
-	UpdateProject(ctx context.Context, id, name, path, desc string, metadata map[string]string) (*Project, error)
+	UpdateProject(ctx context.Context, id, name, desc string, metadata map[string]string) (*Project, error)
 	DeleteProject(ctx context.Context, id string) error
 	ListProjects(ctx context.Context, userID string) ([]*Project, error)
 

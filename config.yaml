@@ -13,3 +13,5 @@ storage:
   profile_dir: "~/.vine-agent/data/profile"
   # SQLite 数据库物理文件路径
   sqlite_db_path: "~/.vine-agent/data/db/memory.db"
+  # 项目（Project）物理工作空间的根目录
+  project_root_dir: "~/.vine-agent/project/"

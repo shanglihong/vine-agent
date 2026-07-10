@@ -23,6 +23,8 @@ type Config struct {
 		ProfileDir string `json:"profile_dir" yaml:"profile_dir"`
 		// SQLiteDBPath SQLite 数据库（存储会话和检索索引）的物理文件路径
 		SQLiteDBPath string `json:"sqlite_db_path" yaml:"sqlite_db_path"`
+		// ProjectRootDir 项目（Project）物理工作空间的根目录
+		ProjectRootDir string `json:"project_root_dir" yaml:"project_root_dir"`
 	} `json:"storage" yaml:"storage"`
 }
 
@@ -34,6 +36,7 @@ func DefaultConfig() *Config {
 	cfg.Server.Port = ":8080"
 	cfg.Storage.ProfileDir = filepath.Join(utils.FindProjectRoot(), "data", "profile")
 	cfg.Storage.SQLiteDBPath = filepath.Join(utils.FindProjectRoot(), "data", "db", "memory.db")
+	cfg.Storage.ProjectRootDir = filepath.Join(utils.FindProjectRoot(), "project")
 	return &cfg
 }
 
@@ -54,6 +57,7 @@ func LoadConfigFromFile(path string) (*Config, error) {
 	// 统一展开波浪号 ~ 为用户主目录绝对路径
 	cfg.Storage.ProfileDir = expandPath(cfg.Storage.ProfileDir)
 	cfg.Storage.SQLiteDBPath = expandPath(cfg.Storage.SQLiteDBPath)
+	cfg.Storage.ProjectRootDir = expandPath(cfg.Storage.ProjectRootDir)
 
 	return cfg, nil
 }

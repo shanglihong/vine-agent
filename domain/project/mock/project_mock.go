@@ -176,18 +176,18 @@ func (mr *MockProjectServiceMockRecorder) BindSession(ctx, projectID, sessionID 
 }
 
 // CreateProject mocks base method.
-func (m *MockProjectService) CreateProject(ctx context.Context, userID, name, path, desc string, metadata map[string]string) (*project.Project, error) {
+func (m *MockProjectService) CreateProject(ctx context.Context, userID, name, desc string, metadata map[string]string) (*project.Project, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateProject", ctx, userID, name, path, desc, metadata)
+	ret := m.ctrl.Call(m, "CreateProject", ctx, userID, name, desc, metadata)
 	ret0, _ := ret[0].(*project.Project)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateProject indicates an expected call of CreateProject.
-func (mr *MockProjectServiceMockRecorder) CreateProject(ctx, userID, name, path, desc, metadata interface{}) *gomock.Call {
+func (mr *MockProjectServiceMockRecorder) CreateProject(ctx, userID, name, desc, metadata interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateProject", reflect.TypeOf((*MockProjectService)(nil).CreateProject), ctx, userID, name, path, desc, metadata)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateProject", reflect.TypeOf((*MockProjectService)(nil).CreateProject), ctx, userID, name, desc, metadata)
 }
 
 // DeleteProject mocks base method.
@@ -265,16 +265,16 @@ func (mr *MockProjectServiceMockRecorder) ListUnclassifiedSessions(ctx, userID i
 }
 
 // UpdateProject mocks base method.
-func (m *MockProjectService) UpdateProject(ctx context.Context, id, name, path, desc string, metadata map[string]string) (*project.Project, error) {
+func (m *MockProjectService) UpdateProject(ctx context.Context, id, name, desc string, metadata map[string]string) (*project.Project, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateProject", ctx, id, name, path, desc, metadata)
+	ret := m.ctrl.Call(m, "UpdateProject", ctx, id, name, desc, metadata)
 	ret0, _ := ret[0].(*project.Project)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpdateProject indicates an expected call of UpdateProject.
-func (mr *MockProjectServiceMockRecorder) UpdateProject(ctx, id, name, path, desc, metadata interface{}) *gomock.Call {
+func (mr *MockProjectServiceMockRecorder) UpdateProject(ctx, id, name, desc, metadata interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProject", reflect.TypeOf((*MockProjectService)(nil).UpdateProject), ctx, id, name, path, desc, metadata)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProject", reflect.TypeOf((*MockProjectService)(nil).UpdateProject), ctx, id, name, desc, metadata)
 }

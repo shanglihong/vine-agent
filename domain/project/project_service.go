@@ -3,25 +3,29 @@ package project
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"time"
 
 	"vine-agent/domain/memory/session"
 )
 
 type projectService struct {
-	repo       ProjectRepository
-	sessionSvc session.SessionService
+	repo           ProjectRepository
+	sessionSvc     session.SessionService
+	projectRootDir string
 }
 
-// NewProjectService 构造 ProjectService 领域服务实例
-func NewProjectService(repo ProjectRepository, sessionSvc session.SessionService) ProjectService {
+// NewProjectService 构造 ProjectService 领域服务实例，新增 projectRootDir 支持工作区路径自动分配
+func NewProjectService(repo ProjectRepository, sessionSvc session.SessionService, projectRootDir string) ProjectService {
 	return &projectService{
-		repo:       repo,
-		sessionSvc: sessionSvc,
+		repo:           repo,
+		sessionSvc:     sessionSvc,
+		projectRootDir: projectRootDir,
 	}
 }
 
-// CreateProject 创建并持久化一个项目
-func (s *projectService) CreateProject(ctx context.Context, userID, name, path, desc string, metadata map[string]string) (*Project, error) {
+// CreateProject 创建并持久化一个项目，使用的 path 为根目录 + 项目id
+func (s *projectService) CreateProject(ctx context.Context, userID, name, desc string, metadata map[string]string) (*Project, error) {
 	if userID == "" {
 		return nil, fmt.Errorf("user_id cannot be empty")
 	}
@@ -29,7 +33,10 @@ func (s *projectService) CreateProject(ctx context.Context, userID, name, path, 
 		return nil, fmt.Errorf("project name cannot be empty")
 	}
 
-	proj := NewProject("", userID, name, path, desc, metadata)
+	projID := fmt.Sprintf("proj_%d", time.Now().UnixNano())
+	finalPath := filepath.Join(s.projectRootDir, projID)
+
+	proj := NewProject(projID, userID, name, finalPath, desc, metadata)
 	if err := s.repo.Save(ctx, proj); err != nil {
 		return nil, err
 	}
@@ -44,8 +51,8 @@ func (s *projectService) GetProject(ctx context.Context, id string) (*Project, e
 	return s.repo.Get(ctx, id)
 }
 
-// UpdateProject 更新项目的核心字段
-func (s *projectService) UpdateProject(ctx context.Context, id, name, path, desc string, metadata map[string]string) (*Project, error) {
+// UpdateProject 更新项目的核心字段（工作空间物理路径不可变更）
+func (s *projectService) UpdateProject(ctx context.Context, id, name, desc string, metadata map[string]string) (*Project, error) {
 	if id == "" {
 		return nil, fmt.Errorf("project id cannot be empty")
 	}
@@ -58,7 +65,7 @@ func (s *projectService) UpdateProject(ctx context.Context, id, name, path, desc
 		return nil, err
 	}
 
-	proj.Update(name, path, desc, metadata)
+	proj.Update(name, proj.Path, desc, metadata)
 	if err := s.repo.Save(ctx, proj); err != nil {
 		return nil, err
 	}

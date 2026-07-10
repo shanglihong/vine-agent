@@ -18,7 +18,6 @@ func (h *APIHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		UserID      string            `json:"user_id"`
 		Name        string            `json:"name"`
-		Path        string            `json:"path"`
 		Description string            `json:"description"`
 		Metadata    map[string]string `json:"metadata"`
 	}
@@ -33,7 +32,7 @@ func (h *APIHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proj, err := h.projectAppSvc.CreateProject(r.Context(), req.UserID, req.Name, req.Path, req.Description, req.Metadata)
+	proj, err := h.projectAppSvc.CreateProject(r.Context(), req.UserID, req.Name, req.Description, req.Metadata)
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -105,7 +104,6 @@ func (h *APIHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		Name        string            `json:"name"`
-		Path        string            `json:"path"`
 		Description string            `json:"description"`
 		Metadata    map[string]string `json:"metadata"`
 	}
@@ -120,7 +118,7 @@ func (h *APIHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.projectAppSvc.UpdateProject(r.Context(), projectID, req.Name, req.Path, req.Description, req.Metadata)
+	_, err := h.projectAppSvc.UpdateProject(r.Context(), projectID, req.Name, req.Description, req.Metadata)
 	if err != nil {
 		if errors.Is(err, project.ErrProjectNotFound) {
 			h.respondError(w, http.StatusNotFound, "project not found")

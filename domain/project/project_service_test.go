@@ -20,7 +20,7 @@ func TestProjectService_CreateProject(t *testing.T) {
 
 	mockRepo := projectmock.NewMockProjectRepository(ctrl)
 	mockSessionSvc := sessionmock.NewMockSessionService(ctrl)
-	service := project.NewProjectService(mockRepo, mockSessionSvc)
+	service := project.NewProjectService(mockRepo, mockSessionSvc, "/test-root")
 
 	ctx := context.Background()
 
@@ -30,22 +30,22 @@ func TestProjectService_CreateProject(t *testing.T) {
 			DoAndReturn(func(ctx context.Context, proj *project.Project) error {
 				assert.Equal(t, "user-1", proj.UserID)
 				assert.Equal(t, "proj-name", proj.Name)
-				assert.Equal(t, "/path", proj.Path)
+				assert.Contains(t, proj.Path, "/test-root")
 				assert.Equal(t, "desc", proj.Description)
 				return nil
 			}).
 			Times(1)
 
-		proj, err := service.CreateProject(ctx, "user-1", "proj-name", "/path", "desc", nil)
+		proj, err := service.CreateProject(ctx, "user-1", "proj-name", "desc", nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, proj)
 	})
 
 	t.Run("参数缺失报错", func(t *testing.T) {
-		_, err := service.CreateProject(ctx, "", "name", "", "", nil)
+		_, err := service.CreateProject(ctx, "", "name", "", nil)
 		assert.Error(t, err)
 
-		_, err = service.CreateProject(ctx, "user-1", "", "", "", nil)
+		_, err = service.CreateProject(ctx, "user-1", "", "", nil)
 		assert.Error(t, err)
 	})
 }
@@ -56,7 +56,7 @@ func TestProjectService_DeleteProject(t *testing.T) {
 
 	mockRepo := projectmock.NewMockProjectRepository(ctrl)
 	mockSessionSvc := sessionmock.NewMockSessionService(ctrl)
-	service := project.NewProjectService(mockRepo, mockSessionSvc)
+	service := project.NewProjectService(mockRepo, mockSessionSvc, "/test-root")
 
 	ctx := context.Background()
 
@@ -116,7 +116,7 @@ func TestProjectService_ListSessionsByProject(t *testing.T) {
 
 	mockRepo := projectmock.NewMockProjectRepository(ctrl)
 	mockSessionSvc := sessionmock.NewMockSessionService(ctrl)
-	service := project.NewProjectService(mockRepo, mockSessionSvc)
+	service := project.NewProjectService(mockRepo, mockSessionSvc, "/test-root")
 
 	ctx := context.Background()
 	projectID := "proj-1"
