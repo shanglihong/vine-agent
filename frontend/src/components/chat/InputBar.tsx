@@ -77,8 +77,8 @@ export default function InputBar({
             className="chat-input-box"
             placeholder={
               pendingInterrupt
-                ? '当前会话已挂起，请审查上面的敏感操作安全卡片。'
-                : '给 Vine-Agent 发送消息...'
+                ? 'The current session is suspended. Please review the sensitive action card above.'
+                : 'Message Vine-Agent...'
             }
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -167,7 +167,7 @@ export default function InputBar({
                 className="send-btn stop-btn"
                 style={{ background: '#ef4444', color: '#ffffff' }}
                 onClick={onCancelChat}
-                title="停止生成"
+                title="Stop generating"
               >
                 <svg
                   viewBox="0 0 24 24"

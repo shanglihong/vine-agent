@@ -22,6 +22,7 @@ export interface Session {
   name?: string;
   updated_at: string;
   status?: string;
+  project_id?: string;
 }
 
 export interface Profile {
@@ -43,3 +44,14 @@ export interface UserInfo {
   username: string;
   email: string;
 }
+
+export interface Project {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  metadata?: Record<string, string>;
+  created_at: string;
+  updated_at: string;
+}
+

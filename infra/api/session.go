@@ -34,6 +34,18 @@ func (h *APIHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 查找用户的所有项目，并建立 session_id -> project_id 映射，用于树形平铺展示
+	sessionProjMap := make(map[string]string)
+	if projs, err := h.projectAppSvc.ListProjects(r.Context(), userID); err == nil {
+		for _, p := range projs {
+			if sesses, err := h.projectAppSvc.ListSessionsByProject(r.Context(), p.ID); err == nil {
+				for _, s := range sesses {
+					sessionProjMap[s.ID] = p.ID
+				}
+			}
+		}
+	}
+
 	// 转换成轻量级返回结构
 	type sessResp struct {
 		ID        string    `json:"id"`
@@ -41,6 +53,7 @@ func (h *APIHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 		Name      string    `json:"name"`
 		UpdatedAt time.Time `json:"updated_at"`
 		Status    string    `json:"status,omitempty"`
+		ProjectID string    `json:"project_id,omitempty"`
 	}
 	list := make([]sessResp, 0, len(sessions))
 	for _, s := range sessions {
@@ -48,12 +61,14 @@ func (h *APIHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 		if s.Metadata != nil {
 			status = s.Metadata["status"]
 		}
+		projID := sessionProjMap[s.ID]
 		list = append(list, sessResp{
 			ID:        s.ID,
 			UserID:    s.UserID,
 			Name:      s.Name,
 			UpdatedAt: s.UpdatedAt,
 			Status:    status,
+			ProjectID: projID,
 		})
 	}
 

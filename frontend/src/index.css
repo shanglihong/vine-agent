@@ -3,8 +3,13 @@
 /* =========================================================================
    ChatGPT Style Design System - 优雅、极简、高质感双色调设计
    ========================================================================= */
+html, body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 :root {
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
   /* =========================================================================
@@ -198,9 +203,12 @@ body {
 }
 
 .sidebar-header {
-  padding: 16px 20px;
+  height: 52px;
+  padding: 0 22px;
   display: flex;
   align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  box-sizing: border-box;
 }
 
 .logo-container {
@@ -225,9 +233,10 @@ body {
   line-height: 1;
 }
 
-.new-chat-btn {
-  margin: 8px 16px 12px 16px;
-  padding: 10px 14px;
+.new-chat-btn,
+.new-project-btn {
+  margin: 8px 12px 12px 12px;
+  padding: 8px 12px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -239,33 +248,51 @@ body {
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   transition: var(--transition-smooth);
 }
 
-.new-chat-btn:hover {
+.new-chat-btn:hover,
+.new-project-btn:hover {
   background: #f1f5f9;
   border-color: #cbd5e1;
-  transform: translateY(-0.5px);
 }
 
-.dark .new-chat-btn:hover {
+.dark .new-chat-btn:hover,
+.dark .new-project-btn:hover {
   background: #2b2b2b;
   border-color: #3f3f46;
+}
+
+.new-project-input-container {
+  margin: 8px 12px 12px 12px;
+}
+
+.new-project-input {
+  width: 100%;
+  border: 1px solid var(--primary-color);
+  outline: none;
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  padding: 9.5px 14px;
+  box-sizing: border-box;
+  box-shadow: var(--shadow-sm);
 }
 
 .session-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0 10px 20px 10px;
+  padding: 0 12px 20px 12px;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
-
 .session-item {
-  padding: 10px 14px;
-  /* 恢复自然的左右 padding */
+  padding: 6px 10px;
   border-radius: var(--radius-md);
   background: transparent;
   cursor: pointer;
@@ -274,14 +301,10 @@ body {
   border: none;
   text-align: left;
   display: flex;
-  /* 开启水平 flex 排列 */
   justify-content: space-between;
-  /* 名字与时间分立两端 */
   align-items: center;
-  /* 垂直居中对齐 */
   width: 100%;
   gap: 12px;
-  /* 留出一定的两端缓冲间距 */
 }
 
 .session-item:hover {
@@ -294,18 +317,16 @@ body {
 
 .session-item.active {
   background: #f1f5f9;
-  /* 亮色下莫兰迪中性浅灰底色 */
   color: var(--text-main);
 }
 
 .session-item.active .session-name {
   color: var(--text-main);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .dark .session-item.active {
   background: rgba(255, 255, 255, 0.05);
-  /* 暗色下莫兰迪灰黑底色 */
   color: #ffffff;
 }
 
@@ -314,31 +335,25 @@ body {
 }
 
 .session-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-main);
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 1;
-  /* 占据主要左侧空间 */
   min-width: 0;
-  /* 允许 flex 容器下截断生效 */
 }
 
 .session-meta {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-family: var(--font-sans);
-  /* 统一为系统通用的无衬线主字体，保持界面一致性 */
   color: var(--text-muted);
-  /* 将字色弱化为 muted 最淡辅助色，降低视觉比重 */
   flex-shrink: 0;
-  /* 锁死时间，防止被左侧会话名挤压折行 */
 }
-
 .status-badge {
   padding: 1px 5px;
   border-radius: 4px;
@@ -405,7 +420,7 @@ body {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   color: var(--text-main);
-  font-size: 14px;
+  font-size: 12.5px;
   font-family: inherit;
   padding: 2px 6px;
   outline: none;
@@ -454,8 +469,12 @@ body {
   /* 使用 bg-card 代替 bg-main，在夜间模式下自动亮起，与最深主底色拉开差距 */
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  width: 88%;
-  max-width: 360px;
+  width: max-content;
+  /* 宽度由内容最大宽度自适应决定，实现绝对的对称和紧凑感 */
+  min-width: 320px;
+  /* 设定最小宽度防止极短文本时过窄 */
+  max-width: min(520px, 90vw);
+  /* 限制最大宽度，适配小屏幕 */
   box-shadow: var(--shadow-lg);
   animation: scaleIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
@@ -472,7 +491,30 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 22px 24px 8px 24px;
+  padding: 24px 24px 8px 24px;
+}
+
+.confirm-modal-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.confirm-modal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  /* 柔和红背光 */
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
+.dark .confirm-modal-icon {
+  background: rgba(239, 68, 68, 0.16);
+  /* 暗色模式下稍微加深红背光以看清 */
 }
 
 .confirm-modal-header h3 {
@@ -907,13 +949,15 @@ body {
 }
 
 .chat-header {
-  padding: 14px 24px;
+  height: 52px;
+  padding: 0 24px;
   background: var(--bg-main);
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
   z-index: 5;
+  box-sizing: border-box;
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
@@ -951,71 +995,162 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 40px 24px;
+  padding: 48px 24px;
 }
 
 .empty-logo-container {
-  width: 48px;
-  height: 48px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 50%;
+  margin-bottom: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 20px;
-  box-shadow: var(--shadow-sm);
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.logo-vine {
+  width: 46px;
+  height: 46px;
+  fill: none;
+  stroke: var(--primary-color);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 4px 12px rgba(26, 115, 232, 0.15));
+  animation: vine-float 4s infinite ease-in-out;
+}
+
+.dark .logo-vine {
+  filter: drop-shadow(0 4px 16px rgba(56, 189, 248, 0.25));
+}
+
+@keyframes vine-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
 }
 
 .empty-state-thesis h3 {
+  font-family: var(--font-sans);
   font-size: 26px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-main);
-  margin-bottom: 32px;
+  margin-bottom: 36px;
   letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--text-main) 30%, var(--text-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 /* 快捷动作网格 */
 .quick-action-cards {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: 16px;
   width: 100%;
   max-width: var(--content-width-card);
+}
+
+@media (max-width: 640px) {
+  .quick-action-cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 }
 
 .action-card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: 14px 16px;
+  padding: 18px 20px;
   text-align: left;
   cursor: pointer;
   transition: var(--transition-smooth);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  box-shadow: var(--shadow-sm);
 }
 
 .action-card:hover {
-  background: #f9f9f9;
-  border-color: #cbd5e1;
+  background: var(--bg-card);
+  border-color: var(--primary-color);
+  transform: translateY(-4px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.03), 0 2px 10px rgba(26, 115, 232, 0.08);
 }
 
 .dark .action-card:hover {
-  background: #2d2d30;
-  border-color: #3f3f46;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2), 0 2px 10px rgba(56, 189, 248, 0.15);
+}
+
+.action-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.action-card-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  transition: var(--transition-smooth);
+}
+
+.action-card-icon-wrapper svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 针对不同类型的卡片图标定义渐变和色彩 */
+.action-card-icon-wrapper.pref {
+  background: rgba(26, 115, 232, 0.08);
+  color: #1a73e8;
+}
+.action-card-icon-wrapper.security {
+  background: rgba(16, 185, 129, 0.08);
+  color: #10b981;
+}
+.action-card-icon-wrapper.memory {
+  background: rgba(139, 92, 246, 0.08);
+  color: #8b5cf6;
+}
+.action-card-icon-wrapper.test {
+  background: rgba(245, 158, 11, 0.08);
+  color: #f59e0b;
+}
+
+.dark .action-card-icon-wrapper.pref {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+}
+.dark .action-card-icon-wrapper.security {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+.dark .action-card-icon-wrapper.memory {
+  background: rgba(167, 139, 250, 0.15);
+  color: #a78bfa;
+}
+.dark .action-card-icon-wrapper.test {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
 }
 
 .action-card-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-main);
-  margin-bottom: 4px;
+  letter-spacing: -0.2px;
 }
 
 .action-card-desc {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--text-secondary);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 /* 对话流布局与排版 */
@@ -2089,7 +2224,8 @@ body {
   width: 3px;
   height: 18px;
   background: var(--text-muted);
-  opacity: 0.5; /* 较明显的默认常驻不透明度，保证在所有显示器上都清晰可见 */
+  opacity: 0.5;
+  /* 较明显的默认常驻不透明度，保证在所有显示器上都清晰可见 */
   border-radius: var(--radius-sm);
   transition: height 0.2s cubic-bezier(0.4, 0, 0.2, 1),
     opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
@@ -2099,12 +2235,14 @@ body {
 .drawer-resize-handle:hover::after,
 .right-drawer-panel.resizing .drawer-resize-handle::after {
   height: 26px;
-  opacity: 0.9; /* hover 或拖拽时高亮变长 */
+  opacity: 0.9;
+  /* hover 或拖拽时高亮变长 */
   background: var(--primary-color);
 }
 
 .right-drawer-header {
-  padding: 14px 18px;
+  height: 52px;
+  padding: 0 18px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
@@ -2191,7 +2329,7 @@ body {
   .right-drawer-panel {
     width: 500px;
   }
-  
+
   .right-drawer-panel:not(.resizing) .right-drawer-header,
   .right-drawer-panel:not(.resizing) .right-drawer-content {
     min-width: 500px;
@@ -2736,11 +2874,9 @@ body {
    Markdown 渲染样式 (.markdown-body)
    ========================================================================= */
 .markdown-body {
-  line-height: 1.75;
-  /* 增加行距提供呼吸感 */
-  font-size: 15px;
-  /* 统一字号，提升阅读舒适度 */
-  color: var(--text-main);
+  line-height: 1.65;
+  font-size: 14.5px;
+  color: var(--text-secondary);
 }
 
 .markdown-body>*:first-child {
@@ -2748,8 +2884,7 @@ body {
 }
 
 .markdown-body p {
-  margin-bottom: 14px;
-  /* 增加段落间距 */
+  margin-bottom: 10px;
 }
 
 .markdown-body p:last-child {
@@ -2763,28 +2898,28 @@ body {
 .markdown-body h4,
 .markdown-body h5,
 .markdown-body h6 {
-  margin-top: 24px;
-  /* 标题与上文拉开更大距离，形成明确分组 */
-  margin-bottom: 10px;
+  margin-top: 18px;
+  margin-bottom: 8px;
   font-weight: 600;
   color: var(--text-main);
   line-height: 1.35;
+  letter-spacing: -0.1px;
 }
 
 .markdown-body h1 {
-  font-size: 1.5em;
+  font-size: 1.4em;
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 4px;
 }
 
 .markdown-body h2 {
-  font-size: 1.3em;
+  font-size: 1.25em;
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 3px;
 }
 
 .markdown-body h3 {
-  font-size: 1.15em;
+  font-size: 1.12em;
 }
 
 .markdown-body h4 {
@@ -2795,12 +2930,11 @@ body {
 .markdown-body ul,
 .markdown-body ol {
   padding-left: 20px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .markdown-body li {
-  margin-bottom: 6px;
-  /* 列表项微增行距 */
+  margin-bottom: 4px;
 }
 
 .markdown-body ul {
@@ -3082,4 +3216,266 @@ body {
   .interrupt-approval-card {
     max-width: 1160px;
   }
+}
+
+/* =========================================================================
+   Project Flat Group Tree 样式定义
+   ========================================================================= */
+.project-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 8px;
+}
+
+.project-group-header {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-smooth);
+  user-select: none;
+  position: relative;
+  margin: 4px 0px 2px 0px;
+}
+
+.project-group-header:hover {
+  background: color-mix(in srgb, var(--bg-sidebar) 92%, var(--text-main) 8%);
+}
+
+.collapse-arrow {
+  stroke: var(--text-muted);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.collapse-arrow.collapsed {
+  transform: rotate(-90deg);
+}
+
+.project-group-icon {
+  stroke: var(--text-secondary);
+  margin-right: 6px;
+  flex-shrink: 0;
+  transition: var(--transition-smooth);
+}
+
+.project-group-header:hover .project-group-icon {
+  stroke: var(--primary-color);
+}
+
+.project-group-name {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.project-group-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.project-group-header:hover .project-group-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.project-group-action-btn {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-smooth);
+}
+
+.project-group-action-btn:hover {
+  background: color-mix(in srgb, var(--bg-sidebar) 84%, var(--text-main) 16%);
+  color: var(--text-main);
+}
+
+.project-group-action-btn.add:hover {
+  color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+}
+
+.project-group-action-btn.delete:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.project-group-rename-input {
+  border: 1px solid var(--primary-color);
+  outline: none;
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+  width: 110px;
+  box-sizing: border-box;
+}
+
+.project-sessions-container {
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+/* =========================================================================
+   高级高亮徽章与删除文案排版样式 (Delete Confirmation Styles)
+   ========================================================================= */
+.delete-confirm-message-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  /* 提示文本与下方名称变量之间的优雅空隙 */
+}
+
+.delete-confirm-text {
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.delete-highlight-name {
+  display: inline-block;
+  margin-top: 6px;
+  /* 距离上方提示文本的优雅间距 */
+  padding: 4px 10px;
+  /* 稍微饱满的内边距，使其呈现极精致的胶囊药丸感 */
+  background: var(--bg-input, #f4f4f4);
+  /* 温和中性灰背景，防恐慌 */
+  color: var(--text-main, #0d0d0d);
+  /* 经典灰黑文字，和谐融合 */
+  border: none;
+  /* 彻底去除边框，避免输入框/按钮的异物感 */
+  box-shadow: none;
+  /* 彻底去除投影 */
+  border-radius: var(--radius-sm, 6px);
+  /* 风格统一的微圆角 */
+  font-weight: 550;
+  /* 适度加粗，清晰醒目 */
+  font-size: 13px;
+  /* 稍微精细的字号以体现细腻感 */
+  line-height: 1.5;
+  word-break: break-all;
+  /* 防止极长无空格名称溢出 */
+}
+
+/* =========================================================================
+   React-Markdown Code Block Styles - 优雅极简代码展示框
+   ========================================================================= */
+.code-block-wrapper {
+  margin: 12px 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: #f8fafc;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dark .code-block-wrapper {
+  background: #1e1e1f;
+  border-color: #2e2e2f;
+}
+
+.code-block-wrapper:hover {
+  border-color: color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
+}
+
+.code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: #f1f5f9;
+  border-bottom: 1px solid var(--border-color);
+  user-select: none;
+}
+
+.dark .code-block-header {
+  background: #181819;
+  border-bottom-color: #2e2e2f;
+}
+
+.code-block-lang {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+.code-block-copy-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 2.5px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.15s ease-in-out;
+  box-shadow: var(--shadow-xs);
+}
+
+.dark .code-block-copy-btn {
+  background: #252526;
+  border-color: #3e3e3f;
+}
+
+.code-block-copy-btn:hover {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #ffffff;
+}
+
+.code-block-copy-btn:active {
+  transform: scale(0.95);
+}
+
+/* 调整 markdown 内代码区块渲染排版 */
+.markdown-body pre {
+  margin: 0 !important;
+  padding: 14px 16px !important;
+  background: transparent !important; /* 让外层 wrapper 的 background 起效 */
+  overflow-x: auto;
+}
+
+.markdown-body pre code {
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  font-size: 13px !important;
+  font-family: var(--font-mono);
+  line-height: 1.6;
+  color: var(--text-main);
+  display: block;
+}
+
+.dark .markdown-body pre code {
+  color: #e3e3e3;
 }

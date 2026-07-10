@@ -277,7 +277,7 @@ export default function ChatArea({
             <div className="chat-bubble">
               <div className="tool-call-indicator">
                 <div className="pulse-dot"></div>
-                <span>正在提炼和计算智能体响应...</span>
+                <span>Thinking and computing response...</span>
               </div>
             </div>
           </div>
@@ -291,7 +291,7 @@ export default function ChatArea({
         <button
           className={`scroll-float-btn ${showScrollTop ? 'visible' : ''}`}
           onClick={scrollToTop}
-          title="回到顶部"
+          title="Back to top"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="18 15 12 9 6 15" />
@@ -300,7 +300,7 @@ export default function ChatArea({
         <button
           className={`scroll-float-btn ${showScrollBottom ? 'visible' : ''}`}
           onClick={scrollToBottom}
-          title="回到底部"
+          title="Back to bottom"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="6 9 12 15 18 9" />

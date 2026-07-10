@@ -2,20 +2,24 @@ import { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import MemoryPanel from './components/MemoryPanel';
-import { UserInfo } from './types';
-import { fetchUserInfo, createSession, deleteSession, renameSession } from './api';
+import { UserInfo, Project } from './types';
+import { fetchUserInfo, createSession, deleteSession, renameSession, fetchProjects, createProject, updateProject, deleteProject } from './api';
 import { useSession } from './hooks/useSession';
 import { useProfile } from './hooks/useProfile';
 import { useChat } from './hooks/useChat';
-import ConfirmModal from './components/ConfirmModal';
+import DeleteConfirmModal from './components/DeleteConfirmModal';
 import RightDrawer from './components/RightDrawer';
 
 export default function App() {
   const [currentSessionID, setCurrentSessionID] = useState<string>('');
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [userID, setUserID] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('deepseek-v4-flash');
+  
+  // ── 项目 (Project) 维度状态 ──
+  const [projects, setProjects] = useState<Project[]>([]);
 
   // 状态：深色/明亮模式
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
@@ -161,9 +165,21 @@ export default function App() {
     }
   }, []);
 
-  // 当 userID 就绪后，再加载会话历史和画像
+  // 加载项目列表
+  const loadProjects = async () => {
+    if (!userID) return;
+    try {
+      const data = await fetchProjects(userID);
+      setProjects(data);
+    } catch (err: any) {
+      console.error('加载项目列表失败:', err);
+    }
+  };
+
+  // 当 userID 就绪后，再加载项目列表、会话历史和画像
   useEffect(() => {
     if (userID) {
+      loadProjects();
       loadSessions(currentSessionID, (firstId) => selectSession(firstId));
       loadProfile();
     }
@@ -210,11 +226,11 @@ export default function App() {
   };
 
   // 3. 创建全新会话
-  const createNewSession = async () => {
+  const createNewSession = async (projectId?: string) => {
     if (isStreaming) return;
     const newSessionID = 'sess_' + Math.random().toString(36).substr(2, 9);
     try {
-      await createSession(newSessionID, userID);
+      await createSession(newSessionID, userID, projectId);
       await loadSessions(currentSessionID);
       selectSession(newSessionID);
     } catch (err: any) {
@@ -223,11 +239,72 @@ export default function App() {
     }
   };
 
+  // ── 项目 (Project) 管理操作 ──
+  const handleCreateProject = async (name: string): Promise<string> => {
+    try {
+      const res = await createProject(userID, name);
+      await loadProjects();
+      return res.id;
+    } catch (err: any) {
+      alert('创建项目失败: ' + err.message);
+      throw err;
+    }
+  };
+
+  const handleRenameProject = async (projectId: string, newName: string) => {
+    try {
+      await updateProject(projectId, newName);
+      await loadProjects();
+    } catch (err: any) {
+      alert('重命名项目失败: ' + err.message);
+      throw err;
+    }
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    setProjectToDelete(projectId);
+  };
+
+  const confirmDeleteProject = async () => {
+    if (!projectToDelete) return;
+    const id = projectToDelete;
+    setProjectToDelete(null);
+    try {
+      await deleteProject(id);
+      await loadProjects();
+      
+      const sessionsInProject = (sessions || []).filter(s => s.project_id === id);
+      const sessionIdsInProject = new Set(sessionsInProject.map(s => s.id));
+      
+      let nextActiveId = currentSessionID;
+      if (sessionIdsInProject.has(currentSessionID)) {
+        const remaining = (sessions || []).filter(s => !sessionIdsInProject.has(s.id));
+        if (remaining.length > 0) {
+          nextActiveId = remaining[0].id;
+        } else {
+          nextActiveId = '';
+        }
+      }
+      
+      await loadSessions(nextActiveId);
+      if (nextActiveId) {
+        selectSession(nextActiveId);
+      } else {
+        setCurrentSessionID('');
+        setPendingInterrupt(null);
+        setMessages([]);
+      }
+    } catch (err: any) {
+      alert('Delete project failed: ' + err.message);
+      console.error('Delete project failed:', err);
+    }
+  };
+
   // 4. 删除指定会话
   const handleDeleteSession = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (isStreaming) {
-      alert('正在生成中，无法删除会话');
+      alert('Cannot delete session while generating.');
       return;
     }
     setSessionToDelete(id);
@@ -242,7 +319,7 @@ export default function App() {
       
       let nextActiveId = currentSessionID;
       if (id === currentSessionID) {
-        const remaining = sessions.filter((s) => s.id !== id);
+        const remaining = (sessions || []).filter((s) => s.id !== id);
         if (remaining.length > 0) {
           nextActiveId = remaining[0].id;
         } else {
@@ -275,6 +352,12 @@ export default function App() {
     }
   };
 
+  const deletingSession = (sessions || []).find((s) => s.id === sessionToDelete);
+  const deletingSessionName = deletingSession ? (deletingSession.name || deletingSession.id) : '';
+
+  const deletingProject = (projects || []).find((p) => p.id === projectToDelete);
+  const deletingProjectName = deletingProject ? deletingProject.name : '';
+
   return (
     <div className={`portal-container ${isMemoryCollapsed && !isSearchPanelOpen ? 'no-right-panels' : ''}`}>
       <Sidebar
@@ -300,6 +383,10 @@ export default function App() {
         onShowTooltip={handleShowTooltip}
         onMoveTooltip={handleMoveTooltip}
         onHideTooltip={handleHideTooltip}
+        projects={projects}
+        onCreateProject={handleCreateProject}
+        onRenameProject={handleRenameProject}
+        onDeleteProject={handleDeleteProject}
       />
       <ChatArea
         messages={messages}
@@ -503,14 +590,21 @@ export default function App() {
           )}
         </div>
       </RightDrawer>
-      <ConfirmModal
+      <DeleteConfirmModal
         isOpen={sessionToDelete !== null}
-        title="删除会话"
-        message="此操作将永久清除该会话的所有历史消息。"
-        confirmText="删除"
-        cancelText="取消"
+        title="Delete Session"
+        itemName={deletingSessionName}
+        itemType="session"
         onConfirm={confirmDeleteSession}
         onCancel={() => setSessionToDelete(null)}
+      />
+      <DeleteConfirmModal
+        isOpen={projectToDelete !== null}
+        title="Delete Project"
+        itemName={deletingProjectName}
+        itemType="project"
+        onConfirm={confirmDeleteProject}
+        onCancel={() => setProjectToDelete(null)}
       />
       {tooltipText && (
         <div

@@ -19,7 +19,7 @@ export function useSession(userID: string) {
         onFirstLoad(data[0].id);
       }
     } catch (err: any) {
-      alert('加载会话失败，网络或后端连接异常: ' + err.message);
+      alert('Failed to load sessions. Network or backend connection error: ' + err.message);
       console.error('加载会话失败:', err);
     }
   };

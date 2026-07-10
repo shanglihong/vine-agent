@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Session, UserInfo } from '../types';
+import { Session, UserInfo, Project } from '../types';
 
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr);
@@ -32,13 +32,17 @@ interface SidebarProps {
   isMemoryCollapsed: boolean;
   setIsMemoryCollapsed: (v: boolean) => void;
   onSelectSession: (id: string) => void;
-  onCreateNewSession: () => void;
+  onCreateNewSession: (projectId?: string) => void;
   onToggleTheme: () => void;
   onDeleteSession: (id: string, e: React.MouseEvent) => void;
   onRenameSession: (id: string, newName: string) => Promise<void>;
   onShowTooltip: (text: string, e: React.MouseEvent) => void;
   onMoveTooltip: (e: React.MouseEvent) => void;
   onHideTooltip: () => void;
+  projects: Project[];
+  onCreateProject: (name: string) => Promise<string>;
+  onRenameProject: (projectId: string, newName: string) => Promise<void>;
+  onDeleteProject: (projectId: string) => Promise<void>;
 }
 
 export default function Sidebar({
@@ -59,9 +63,66 @@ export default function Sidebar({
   onShowTooltip,
   onMoveTooltip,
   onHideTooltip,
+  projects,
+  onCreateProject,
+  onRenameProject,
+  onDeleteProject,
 }: SidebarProps) {
   const [editingSessionID, setEditingSessionID] = useState<string | null>(null);
   const [editingName, setEditingName] = useState<string>('');
+
+  // 折叠项目的状态管理
+  const [collapsedProjects, setCollapsedProjects] = useState<Record<string, boolean>>({});
+
+  const [editingProjectID, setEditingProjectID] = useState<string | null>(null);
+  const [editingProjectName, setEditingProjectName] = useState('');
+
+  const toggleProjectCollapse = (projectId: string) => {
+    setCollapsedProjects((prev) => ({
+      ...prev,
+      [projectId]: !prev[projectId],
+    }));
+  };
+
+  const handleSaveProjectRename = async (id: string) => {
+    const trimmed = editingProjectName.trim();
+    if (!trimmed) {
+      setEditingProjectID(null);
+      return;
+    }
+    try {
+      await onRenameProject(id, trimmed);
+    } finally {
+      setEditingProjectID(null);
+    }
+  };
+
+  const [isCreatingProjectOutside, setIsCreatingProjectOutside] = useState(false);
+  const [newProjectNameOutside, setNewProjectNameOutside] = useState('');
+
+  const handleCreateProjectOutsideSubmit = async () => {
+    const trimmed = newProjectNameOutside.trim();
+    if (!trimmed) {
+      setIsCreatingProjectOutside(false);
+      return;
+    }
+    try {
+      await onCreateProject(trimmed);
+      setNewProjectNameOutside('');
+      setIsCreatingProjectOutside(false);
+    } catch (err) {
+      setIsCreatingProjectOutside(false);
+    }
+  };
+
+  const handleCreateProjectOutsideKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleCreateProjectOutsideSubmit();
+    } else if (e.key === 'Escape') {
+      setIsCreatingProjectOutside(false);
+      setNewProjectNameOutside('');
+    }
+  };
 
   const handleStartRename = (id: string, currentName: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -88,6 +149,128 @@ export default function Sidebar({
     } else if (e.key === 'Escape') {
       setEditingSessionID(null);
     }
+  };
+
+  const renderSessionItem = (s: Session) => {
+    return (
+      <div
+        key={s.id}
+        className={`session-item ${currentSessionID === s.id ? 'active' : ''}`}
+        onClick={() => onSelectSession(s.id)}
+      >
+        {editingSessionID === s.id ? (
+          <input
+            type="text"
+            className="session-rename-input"
+            value={editingName}
+            onChange={(e) => setEditingName(e.target.value)}
+            onBlur={() => handleSaveRename(s.id)}
+            onKeyDown={(e) => handleKeyDown(e, s.id)}
+            autoFocus
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <div
+            className="session-name"
+            style={{ display: 'flex', alignItems: 'center' }}
+            onDoubleClick={(e) => handleStartRename(s.id, s.name || s.id, e)}
+          >
+            <span
+              style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}
+              onMouseEnter={(e) => {
+                const isTruncated = e.currentTarget.scrollWidth > e.currentTarget.clientWidth;
+                if (isTruncated) {
+                  onShowTooltip(s.name || s.id, e);
+                }
+              }}
+              onMouseMove={onMoveTooltip}
+              onMouseLeave={onHideTooltip}
+            >
+              {s.name || s.id}
+            </span>
+          </div>
+        )}
+        <div className="session-meta">
+          <span className="session-time">{formatRelativeTime(s.updated_at)}</span>
+          {editingSessionID !== s.id && (
+            <button
+              className="session-rename-btn"
+              title="Rename session"
+              onClick={(e) => handleStartRename(s.id, s.name || s.id, e)}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="12"
+                height="12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+            </button>
+          )}
+          <button
+            className="session-delete-btn"
+            title="Delete session"
+            onClick={(e) => onDeleteSession(s.id, e)}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="13"
+              height="13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              <line x1="10" y1="11" x2="10" y2="17"></line>
+              <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+          </button>
+          {s.id === currentSessionID && isStreaming && (
+            <svg
+              className="spin-svg"
+              viewBox="0 0 24 24"
+              style={{
+                width: '10px',
+                height: '10px',
+                stroke: 'var(--primary-color)',
+                strokeWidth: 3,
+                fill: 'none',
+                strokeLinecap: 'round',
+                marginLeft: '6px',
+                animation: 'spin 1.2s linear infinite',
+                flexShrink: 0,
+              }}
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle cx="12" cy="12" r="10" strokeDasharray="30 12" />
+            </svg>
+          )}
+          {(s.status === 'pending_confirmation' ||
+            (s.id === currentSessionID && pendingInterrupt)) && (
+              <span
+                className="status-badge pending"
+                style={{
+                  marginLeft: '6px',
+                  fontSize: '9px',
+                  padding: '1.5px 5px',
+                  lineHeight: 1,
+                }}
+              >
+                PENDING
+              </span>
+            )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -136,156 +319,152 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* 极简无界 New chat 按钮 */}
-      <button className="new-chat-btn" onClick={onCreateNewSession}>
-        <svg
-          viewBox="0 0 24 24"
-          width="13.5"
-          height="13.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{ marginRight: '8.5px', flexShrink: 0 }}
-        >
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-        New chat
-      </button>
+      {/* 极简无界 New Project 按钮 */}
+      {isCreatingProjectOutside ? (
+        <div className="new-project-input-container">
+          <input
+            type="text"
+            className="new-project-input"
+            placeholder="Enter project name..."
+            value={newProjectNameOutside}
+            onChange={(e) => setNewProjectNameOutside(e.target.value)}
+            onKeyDown={handleCreateProjectOutsideKeyDown}
+            onBlur={handleCreateProjectOutsideSubmit}
+            autoFocus
+          />
+        </div>
+      ) : (
+        <button className="new-project-btn" onClick={() => setIsCreatingProjectOutside(true)}>
+          <svg
+            viewBox="0 0 24 24"
+            width="13.5"
+            height="13.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ marginRight: '8.5px', flexShrink: 0 }}
+          >
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          New Project
+        </button>
+      )}
 
       <div className="session-list">
-        {sessions.map((s) => (
-          <button
-            key={s.id}
-            className={`session-item ${currentSessionID === s.id ? 'active' : ''}`}
-            onClick={() => onSelectSession(s.id)}
-          >
-            {editingSessionID === s.id ? (
-              <input
-                type="text"
-                className="session-rename-input"
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-                onBlur={() => handleSaveRename(s.id)}
-                onKeyDown={(e) => handleKeyDown(e, s.id)}
-                autoFocus
-                onClick={(e) => e.stopPropagation()}
-              />
-            ) : (
+        {/* 1. 未分类会话平铺展示，不再使用 Unclassified 分组包裹 */}
+        {(sessions || [])
+          .filter((s) => !s.project_id)
+          .map((s) => renderSessionItem(s))}
+
+        {/* 2. 自定义项目平铺 */}
+        {(projects || []).map((proj) => {
+          const projectSessions = (sessions || []).filter((s) => s.project_id === proj.id);
+          const isCollapsed = !!collapsedProjects[proj.id];
+          return (
+            <div key={proj.id} className="project-group">
               <div
-                className="session-name"
-                style={{ display: 'flex', alignItems: 'center' }}
-                onDoubleClick={(e) => handleStartRename(s.id, s.name || s.id, e)}
-              >
-                <span
-                  style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}
-                  onMouseEnter={(e) => {
-                    const isTruncated = e.currentTarget.scrollWidth > e.currentTarget.clientWidth;
-                    if (isTruncated) {
-                      onShowTooltip(s.name || s.id, e);
-                    }
-                  }}
-                  onMouseMove={onMoveTooltip}
-                  onMouseLeave={onHideTooltip}
-                >
-                  {s.name || s.id}
-                </span>
-              </div>
-            )}
-            <div className="session-meta">
-              <span className="session-time">{formatRelativeTime(s.updated_at)}</span>
-              {editingSessionID !== s.id && (
-                <button
-                  className="session-rename-btn"
-                  title="Rename session"
-                  onClick={(e) => handleStartRename(s.id, s.name || s.id, e)}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="12"
-                    height="12"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M12 20h9"></path>
-                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-                  </svg>
-                </button>
-              )}
-              <button
-                className="session-delete-btn"
-                title="Delete session"
-                onClick={(e) => onDeleteSession(s.id, e)}
+                className="project-group-header"
+                onClick={() => toggleProjectCollapse(proj.id)}
               >
                 <svg
+                  className={`collapse-arrow ${isCollapsed ? 'collapsed' : ''}`}
                   viewBox="0 0 24 24"
-                  width="13"
-                  height="13"
+                  width="12"
+                  height="12"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                  strokeWidth="2.5"
                 >
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                  <line x1="10" y1="11" x2="10" y2="17"></line>
-                  <line x1="14" y1="11" x2="14" y2="17"></line>
+                  <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
-              </button>
-              {s.id === currentSessionID && isStreaming && (
                 <svg
-                  className="spin-svg"
+                  className="project-group-icon"
                   viewBox="0 0 24 24"
-                  style={{
-                    width: '10px',
-                    height: '10px',
-                    stroke: 'var(--primary-color)',
-                    strokeWidth: 3,
-                    fill: 'none',
-                    strokeLinecap: 'round',
-                    marginLeft: '6px',
-                    animation: 'spin 1.2s linear infinite',
-                    flexShrink: 0,
-                  }}
-                  xmlns="http://www.w3.org/2000/svg"
+                  width="12"
+                  height="12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
                 >
-                  <circle cx="12" cy="12" r="10" strokeDasharray="30 12" />
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                 </svg>
-              )}
-              {(s.status === 'pending_confirmation' ||
-                (s.id === currentSessionID && pendingInterrupt)) && (
-                  <span
-                    className="status-badge pending"
-                    style={{
-                      marginLeft: '6px',
-                      fontSize: '9px',
-                      padding: '1.5px 5px',
-                      lineHeight: 1,
+                {editingProjectID === proj.id ? (
+                  <input
+                    type="text"
+                    className="project-group-rename-input"
+                    value={editingProjectName}
+                    onChange={(e) => setEditingProjectName(e.target.value)}
+                    onBlur={() => handleSaveProjectRename(proj.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveProjectRename(proj.id);
+                      if (e.key === 'Escape') setEditingProjectID(null);
+                    }}
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <span className="project-group-name">{proj.name}</span>
+                )}
+
+                <div className="project-group-actions" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="project-group-action-btn add"
+                    title="New Chat"
+                    onClick={() => onCreateNewSession(proj.id)}
+                  >
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                  </button>
+                  <button
+                    className="project-group-action-btn edit"
+                    title="Rename"
+                    onClick={() => {
+                      setEditingProjectID(proj.id);
+                      setEditingProjectName(proj.name);
                     }}
                   >
-                    PENDING
-                  </span>
-                )}
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M12 20h9"></path>
+                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                    </svg>
+                  </button>
+                  <button
+                    className="project-group-action-btn delete"
+                    title="Delete"
+                    onClick={() => onDeleteProject(proj.id)}
+                  >
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {!isCollapsed && (
+                <div className="project-sessions-container">
+                  {projectSessions.map((s) => renderSessionItem(s))}
+                </div>
+              )}
             </div>
-          </button>
-        ))}
+          );
+        })}
       </div>
 
       <div className="user-footer">
         <div className="user-avatar">
           {userInfo?.username ? userInfo.username[0].toUpperCase() : 'U'}
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: '12px' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 500, fontSize: '12.5px', color: 'var(--text-main)', letterSpacing: '-0.1px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
             {userInfo?.username || userID || 'Loading...'}
           </div>
-          <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
+          <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
             Status: Active
           </div>
         </div>
@@ -303,7 +482,7 @@ export default function Sidebar({
         <button
           onClick={onToggleTheme}
           className="theme-toggle-btn"
-          title={isDarkMode ? '切换至明亮模式' : '切换至暗色模式'}
+          title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
         >
           {isDarkMode ? (
             <svg

@@ -16,11 +16,15 @@ export async function fetchSessionMessages(sessionId: string): Promise<{ message
   return res.json();
 }
 
-export async function createSession(sessionId: string, userId: string): Promise<void> {
+export async function createSession(sessionId: string, userId: string, projectId?: string): Promise<void> {
+  const body: any = { session_id: sessionId, user_id: userId };
+  if (projectId && projectId !== 'all' && projectId !== 'unclassified') {
+    body.project_id = projectId;
+  }
   const res = await fetch('/api/sessions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: sessionId, user_id: userId }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     throw new Error(`Failed to create session: status ${res.status}`);

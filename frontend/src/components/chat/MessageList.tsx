@@ -1,11 +1,49 @@
-import React from 'react';
-import { marked } from 'marked';
+import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Message, TimelineItem } from '../../types';
 
-// 配置 marked，使其支持单换行解析为 <br> 标签
-marked.setOptions({
-  breaks: true,
-});
+interface CodeBlockProps {
+  className?: string;
+  inline?: boolean;
+  children: React.ReactNode;
+}
+
+function CodeBlock({ className, inline, children, ...props }: CodeBlockProps) {
+  const [copied, setCopied] = useState(false);
+  const match = /language-(\w+)/.exec(className || '');
+  const lang = match ? match[1] : '';
+  const rawCode = String(children).replace(/\n$/, '');
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(rawCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  if (!inline && match) {
+    return (
+      <div className="code-block-wrapper">
+        <div className="code-block-header">
+          <span className="code-block-lang">{lang}</span>
+          <button className="code-block-copy-btn" onClick={handleCopy}>
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+        <pre className={className} {...props}>
+          <code>{children}</code>
+        </pre>
+      </div>
+    );
+  }
+
+  return (
+    <code className={className} {...props}>
+      {children}
+    </code>
+  );
+}
 
 // 专属工具图标映射
 const getToolIcon = (toolName: string) => {
@@ -99,27 +137,11 @@ export default function MessageList({
       <div className="empty-state-thesis">
         <div
           className="empty-logo-container"
-          style={{
-            border: 'none',
-            background: 'transparent',
-            boxShadow: 'none',
-            width: 'auto',
-            height: 'auto',
-            marginBottom: '16px',
-          }}
         >
           {/* 首页大图标：符合 Vine 的科技风格葡萄图标 */}
           <svg
             viewBox="0 0 24 24"
-            style={{
-              width: '42px',
-              height: '42px',
-              fill: 'none',
-              stroke: 'var(--primary-color)',
-              strokeWidth: 1.8,
-              strokeLinecap: 'round',
-              strokeLinejoin: 'round',
-            }}
+            className="logo-vine"
             xmlns="http://www.w3.org/2000/svg"
           >
             <line x1="8" y1="8" x2="12" y2="7" />
@@ -146,31 +168,69 @@ export default function MessageList({
         <div className="quick-action-cards">
           <div
             className="action-card"
-            onClick={() => onQuickAction('分析我近期的偏好有哪些新的进化？')}
+            onClick={() => onQuickAction('How has my user preference profile evolved recently?')}
           >
-            <div className="action-card-title">🔍 分析近期偏好</div>
-            <div className="action-card-desc">探索在近期对话流中，系统自动归纳的最新行为特征。</div>
+            <div className="action-card-header">
+              <span className="action-card-icon-wrapper pref">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 3v18h18" />
+                  <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
+                  <path d="M19 11.5l3-3-3-3" />
+                  <path d="M22 8.5h-6" />
+                </svg>
+              </span>
+              <div className="action-card-title">Analyze Preferences</div>
+            </div>
+            <div className="action-card-desc">Explore the latest behavioral profiles auto-extracted from recent sessions.</div>
           </div>
+
           <div
             className="action-card"
-            onClick={() => onQuickAction('检查当前会话中是否有挂起的敏感工具调用？')}
+            onClick={() => onQuickAction('Are there any pending sensitive tool calls in the current session?')}
           >
-            <div className="action-card-title">🛡 安全审查拦截</div>
-            <div className="action-card-desc">检测是否存在挂起、需要人工干预审批的敏感工具执行。</div>
+            <div className="action-card-header">
+              <span className="action-card-icon-wrapper security">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  <path d="m9 11 2 2 4-4" />
+                </svg>
+              </span>
+              <div className="action-card-title">Security & Guardrails</div>
+            </div>
+            <div className="action-card-desc">Check if there are any pending sensitive tool executions awaiting manual approval.</div>
           </div>
+
           <div
             className="action-card"
-            onClick={() => onQuickAction('梳理一下你目前记录关于我的客观事实有哪些？')}
+            onClick={() => onQuickAction('Summarize all the objective facts about me stored in your long-term memory.')}
           >
-            <div className="action-card-title">📂 整理长期记忆</div>
-            <div className="action-card-desc">打印已存入数据库的客观事实事实画像列表。</div>
+            <div className="action-card-header">
+              <span className="action-card-icon-wrapper memory">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <ellipse cx="12" cy="5" rx="9" ry="3" />
+                  <path d="M3 5V19c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                  <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" />
+                </svg>
+              </span>
+              <div className="action-card-title">Manage Core Memory</div>
+            </div>
+            <div className="action-card-desc">Retrieve the list of objective facts and core persona stored in the memory database.</div>
           </div>
+
           <div
             className="action-card"
-            onClick={() => onQuickAction('开始一个新的系统测试，帮我调用几个工具试试。')}
+            onClick={() => onQuickAction('Initiate a tool call test session to try executing some basic tools.')}
           >
-            <div className="action-card-title">⚙️ 发起工具测试</div>
-            <div className="action-card-desc">输入测试命令，让智能体尝试调用底层预置的服务。</div>
+            <div className="action-card-header">
+              <span className="action-card-icon-wrapper test">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="4 17 10 11 4 5" />
+                  <line x1="12" y1="19" x2="20" y2="19" />
+                </svg>
+              </span>
+              <div className="action-card-title">Trigger Tool Testing</div>
+            </div>
+            <div className="action-card-desc">Provide test inputs to verify and run execution of underlying agent tools.</div>
           </div>
         </div>
       </div>
@@ -449,11 +509,21 @@ export default function MessageList({
                   isUser ? (
                     <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
                   ) : (
-                    <div
-                      dangerouslySetInnerHTML={{
-                        __html: marked.parse(m.content) as string,
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        code({ inline, className, children, ...props }) {
+                          const isInline = !!inline;
+                          return (
+                            <CodeBlock className={className} inline={isInline} {...props}>
+                              {children}
+                            </CodeBlock>
+                          );
+                        }
                       }}
-                    />
+                    >
+                      {m.content}
+                    </ReactMarkdown>
                   )
                 ) : (
                   ''
