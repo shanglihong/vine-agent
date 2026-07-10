@@ -57,6 +57,11 @@ func (a *ProjectAppService) ListUnclassifiedSessions(ctx context.Context, userID
 	return a.projectSvc.ListUnclassifiedSessions(ctx, userID)
 }
 
+// DeleteSessionInProject 删除会话
+func (a *ProjectAppService) DeleteSessionInProject(ctx context.Context, sessID, projectID string) error {
+	return a.projectSvc.DeleteSessionInProject(ctx, sessID, projectID)
+}
+
 // GetProjectBySession 根据 sessionID 获取关联的项目。如果未关联任何项目，返回 ErrProjectNotFound
 func (a *ProjectAppService) GetProjectBySession(ctx context.Context, sessionID string) (*project.Project, error) {
 	return a.projectSvc.GetProjectBySession(ctx, sessionID)

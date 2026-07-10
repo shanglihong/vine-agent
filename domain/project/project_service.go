@@ -175,6 +175,29 @@ func (s *projectService) ListUnclassifiedSessions(ctx context.Context, userID st
 	return list, nil
 }
 
+// DeleteSessionInProject 物理删除某项目下的所有会话和消息
+func (s *projectService) DeleteSessionInProject(ctx context.Context, sessID, projectID string) error {
+	if sessID == "" {
+		return fmt.Errorf("session_id cannot be empty")
+	}
+
+	if projectID == "" {
+		project, err := s.GetProjectBySession(ctx, sessID)
+		if err != nil {
+			return fmt.Errorf("failed to get project for session %s: %w", sessID, err)
+		}
+		projectID = project.ID
+	}
+
+	if err := s.sessionSvc.Delete(ctx, sessID); err != nil {
+		return fmt.Errorf("failed to delete session %s: %w", sessID, err)
+	}
+	if err := s.repo.DeleteSessionInProject(ctx, projectID, sessID); err != nil {
+		return fmt.Errorf("failed to remove session %s for project %s: %w", sessID, projectID, err)
+	}
+	return nil
+}
+
 // GetProjectBySession 根据 sessionID 获取关联的项目。如果未关联任何项目，返回 ErrProjectNotFound
 func (s *projectService) GetProjectBySession(ctx context.Context, sessionID string) (*Project, error) {
 	if sessionID == "" {

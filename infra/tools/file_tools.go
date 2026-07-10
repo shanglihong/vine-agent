@@ -64,7 +64,7 @@ func (t *ListDirTool) Info() tool.Definition {
 				},
 			},
 		},
-		RequiresConfirmation: true,
+		RequiresConfirmation: false,
 	}
 }
 

@@ -152,35 +152,14 @@ export default function ChatArea({
     <main className="chat-area">
       <header className="chat-header">
         <div className="chat-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* 精致的淡色会话图标 */}
-          <svg
-            viewBox="0 0 24 24"
-            style={{
-              width: '14px',
-              height: '14px',
-              fill: 'none',
-              stroke: 'var(--primary-color)',
-              strokeWidth: 1.8,
-              strokeLinecap: 'round',
-              strokeLinejoin: 'round',
-              opacity: 0.75,
-              flexShrink: 0,
-            }}
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            {/* 消息框外廓 */}
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            {/* 内部精细段落线，消除空框古板感 */}
-            <line x1="8" y1="9" x2="16" y2="9" />
-            <line x1="8" y1="13" x2="13" y2="13" />
-          </svg>
+
 
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', minWidth: 0 }}>
             {/* 会话 Name 标题 */}
             <h2
               style={{
-                fontSize: '13.5px',
-                fontWeight: 600,
+                fontSize: '13px',
+                fontWeight: 500,
                 color: 'var(--text-main)',
                 margin: 0,
                 lineHeight: 1.2,
@@ -190,7 +169,7 @@ export default function ChatArea({
                 textOverflow: 'ellipsis',
                 overflow: 'hidden',
                 whiteSpace: 'nowrap',
-                maxWidth: '180px',
+                maxWidth: '250px',
                 verticalAlign: 'bottom',
                 minWidth: 0
               }}
@@ -210,7 +189,7 @@ export default function ChatArea({
             {currentSessionName && currentSessionName !== currentSessionID && (
               <span
                 style={{
-                  fontSize: '10.5px',
+                  fontSize: '11px',
                   color: 'var(--text-muted)',
                   fontWeight: 400,
                   fontFamily: 'var(--font-mono, monospace)',
@@ -219,7 +198,7 @@ export default function ChatArea({
                   textOverflow: 'ellipsis',
                   overflow: 'hidden',
                   whiteSpace: 'nowrap',
-                  maxWidth: '100px',
+                  maxWidth: '200px',
                   verticalAlign: 'bottom',
                   minWidth: 0
                 }}

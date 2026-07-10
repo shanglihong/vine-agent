@@ -64,6 +64,20 @@ func (mr *MockProjectRepositoryMockRecorder) Delete(ctx, id interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockProjectRepository)(nil).Delete), ctx, id)
 }
 
+// DeleteSessionInProject mocks base method.
+func (m *MockProjectRepository) DeleteSessionInProject(ctx context.Context, projectID, sessionID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteSessionInProject", ctx, projectID, sessionID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteSessionInProject indicates an expected call of DeleteSessionInProject.
+func (mr *MockProjectRepositoryMockRecorder) DeleteSessionInProject(ctx, projectID, sessionID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSessionInProject", reflect.TypeOf((*MockProjectRepository)(nil).DeleteSessionInProject), ctx, projectID, sessionID)
+}
+
 // Get mocks base method.
 func (m *MockProjectRepository) Get(ctx context.Context, id string) (*project.Project, error) {
 	m.ctrl.T.Helper()
@@ -217,6 +231,20 @@ func (m *MockProjectService) DeleteProject(ctx context.Context, id string) error
 func (mr *MockProjectServiceMockRecorder) DeleteProject(ctx, id interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteProject", reflect.TypeOf((*MockProjectService)(nil).DeleteProject), ctx, id)
+}
+
+// DeleteSessionInProject mocks base method.
+func (m *MockProjectService) DeleteSessionInProject(ctx context.Context, sessID, projectID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteSessionInProject", ctx, sessID, projectID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteSessionInProject indicates an expected call of DeleteSessionInProject.
+func (mr *MockProjectServiceMockRecorder) DeleteSessionInProject(ctx, sessID, projectID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSessionInProject", reflect.TypeOf((*MockProjectService)(nil).DeleteSessionInProject), ctx, sessID, projectID)
 }
 
 // GetProject mocks base method.

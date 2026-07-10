@@ -279,6 +279,15 @@ func (s *ProjectStore) ListUnclassifiedSessions(ctx context.Context, userID stri
 	return sessionIDs, nil
 }
 
+func (s *ProjectStore) DeleteSessionInProject(ctx context.Context, projectID string, sessionID string) error {
+	// 删除关系关联表中的记录
+	_, err := s.db.ExecContext(ctx, `DELETE FROM project_sessions WHERE project_id = ? and session_id = ?`, projectID, sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to delete project_sessions relationship for project %s and session_id %s: %w", projectID, sessionID, err)
+	}
+	return nil
+}
+
 // GetProjectBySession 根据 sessionID 获取关联的项目。如果未关联任何项目，返回 ErrProjectNotFound
 func (s *ProjectStore) GetProjectBySession(ctx context.Context, sessionID string) (*project.Project, error) {
 	query := `

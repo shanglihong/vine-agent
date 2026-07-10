@@ -294,7 +294,7 @@ body {
 }
 
 .session-item {
-  padding: 8px 20px;
+  padding: 8px 9px;
   border-radius: var(--radius-md);
   background: transparent;
   cursor: pointer;
@@ -339,9 +339,9 @@ body {
 }
 
 .session-name {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 400;
-  color: var(--text-secondary);
+  color: var(--text-main);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1019,7 +1019,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 48px 24px;
+  padding: 5px 24px;
 }
 
 .empty-logo-container {
@@ -3257,19 +3257,19 @@ body {
 .project-group {
   display: flex;
   flex-direction: column;
-  margin-bottom: 8px;
+  margin-bottom: 1px;
 }
 
 .project-group-header {
   display: flex;
   align-items: center;
-  padding: 6px 20px;
+  padding: 6px 13px;
   cursor: pointer;
   border-radius: var(--radius-sm);
   transition: var(--transition-smooth);
   user-select: none;
   position: relative;
-  margin: 4px 0px 2px 0px;
+  margin: 2px 0px 2px 0px;
 }
 
 .project-group-header:hover {
@@ -3289,7 +3289,7 @@ body {
 
 .project-group-icon {
   stroke: var(--text-secondary);
-  margin-right: 12px;
+  margin-right: 10px;
   flex-shrink: 0;
   transition: var(--transition-smooth);
 }
@@ -3301,8 +3301,8 @@ body {
 .project-group-name {
   font-family: var(--font-sans);
   font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
+  font-weight: 400;
+  color: var(--text-main);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

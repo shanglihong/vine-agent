@@ -24,15 +24,15 @@ export default function ChatTimeline({
   const chatNodes = messages
     .map((msg, index) => ({ msg, index }))
     .filter(({ msg, index }) => {
-      if (msg.role === 'user') return true;
-      if (msg.role === 'assistant') {
-        // 保留有内容、有推理，或者是当前正在响应的最后一条消息
-        return (
-          (msg.content && msg.content.trim().length > 0) ||
-          (msg.reasoning_content && msg.reasoning_content.trim().length > 0) ||
-          index === messages.length - 1
-        );
-      }
+      if (msg.role === 'user' || msg.role === 'assistant') return true;
+      // if (msg.role === 'assistant') {
+      //   // 保留有内容、有推理，或者是当前正在响应的最后一条消息
+      //   return (
+      //     (msg.content && msg.content.trim().length > 0) ||
+      //     (msg.reasoning_content && msg.reasoning_content.trim().length > 0) ||
+      //     index === messages.length - 1
+      //   );
+      // }
       return false;
     });
 

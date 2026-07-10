@@ -52,6 +52,8 @@ export default function InputBar({
 
   // 智能拦截键盘回车发送，Shift+Enter 则换行
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // 中文输入法正在选词/组合文字时，直接放行，不拦截回车
+    if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (inputValue.trim() && !isStreaming && !pendingInterrupt && currentSessionID) {

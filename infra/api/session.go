@@ -406,7 +406,7 @@ func (h *APIHandler) DeleteSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.sessionSvc.Delete(r.Context(), sessionID)
+	err := h.projectAppSvc.DeleteSessionInProject(r.Context(), sessionID, "")
 	if err != nil {
 		if errors.Is(err, session.ErrSessionNotFound) {
 			h.respondError(w, http.StatusNotFound, "session not found")

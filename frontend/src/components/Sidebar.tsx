@@ -116,6 +116,8 @@ export default function Sidebar({
   };
 
   const handleCreateProjectOutsideKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // 中文输入法正在选词/组合文字时，直接放行，不拦截回车
+    if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter') {
       handleCreateProjectOutsideSubmit();
     } else if (e.key === 'Escape') {
@@ -144,6 +146,8 @@ export default function Sidebar({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, id: string) => {
+    // 中文输入法正在选词/组合文字时，直接放行，不拦截回车
+    if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter') {
       handleSaveRename(id);
     } else if (e.key === 'Escape') {
@@ -380,6 +384,8 @@ export default function Sidebar({
                     onChange={(e) => setEditingProjectName(e.target.value)}
                     onBlur={() => handleSaveProjectRename(proj.id)}
                     onKeyDown={(e) => {
+                      // 中文输入法正在选词/组合文字时，直接放行，不拦截回车
+                      if (e.nativeEvent.isComposing) return;
                       if (e.key === 'Enter') handleSaveProjectRename(proj.id);
                       if (e.key === 'Escape') setEditingProjectID(null);
                     }}

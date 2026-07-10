@@ -16,7 +16,7 @@
     - [x] **数据库变更**：在 SQLite 数据库中新建 `projects` 表（包含 `id`, `name`, `description`, `created_at`, `updated_at`, `metadata` 字段），并在 `sessions` 表中新增 `project_id` 字段建立外键关联。
     - [x] **领域实体定义**：新建 `domain/project` 目录，并在该包下定义 `Project` 实体与 `ProjectRepository` 仓储接口，详情参考设计模式规范：[Memory 模块设计文档](doc/memory.md)。
     - [x] **应用层编排**：在 `app/` 目录下新增 Project 管理服务，支持 Project 的增删改查及关联 Session。
-    - [ ] **DeleteSession， 删除session需要处理和project的关系**
+    - [x] **DeleteSession， 删除session需要处理和project的关系**
 
 #### 2. 对话生成主动中断与恢复
 *   **目标**：支持在流式生成中，用户能够随时手动取消（Cancel/Abort）当前生成，并能够从截断位置继续（Continue）生成后续文本。
