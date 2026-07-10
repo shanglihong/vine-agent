@@ -91,8 +91,9 @@ func main() {
 	agentSvc := agent.NewService(chatModel, sessionSvc)
 	interactionSvc := agent.NewInteractionService(agentSvc, sessionSvc)
 	evolutionAppSvc := memory_app.NewEvolutionAppService(sessionSvc, profileRepo, evolutionSvc)
-	userAppSvc := user_app.NewUserAppService(userDomainSvc)
+	userAppSvc := user_app.NewUserAppService(userDomainSvc, sessionSvc, profileRepo, evolutionAppSvc)
 	projectAppSvc := project_app.NewProjectAppService(projectDomainSvc)
+	sessionAppSvc := memory_app.NewSessionAppService(sessionSvc, projectDomainSvc)
 
 	// 启动统一的定时任务调度器 (使用 cron 统一管理)
 	cronScheduler := scheduler.NewCronScheduler(logger)
@@ -108,7 +109,7 @@ func main() {
 		tools.NewWebSearchTool(),
 		tools.NewWebCrawlTool(),
 	}
-	handler := api.NewAPIHandler(agentSvc, interactionSvc, sessionSvc, profileRepo, evolutionAppSvc, userAppSvc, projectAppSvc, appTools, logger)
+	handler := api.NewAPIHandler(agentSvc, interactionSvc, sessionSvc, profileRepo, evolutionAppSvc, userAppSvc, projectAppSvc, sessionAppSvc, appTools, logger)
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 

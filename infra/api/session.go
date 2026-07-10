@@ -25,26 +25,10 @@ func (h *APIHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var (
-		sessions []*session.Session
-		err      error
-	)
+	hasProjectIDQuery := r.URL.Query().Has("project_id")
+	projectID := r.URL.Query().Get("project_id")
 
-	// 支持根据 project_id 过滤
-	if r.URL.Query().Has("project_id") {
-		projectID := r.URL.Query().Get("project_id")
-		if projectID == "" {
-			// 未分类会话
-			sessions, err = h.projectAppSvc.ListUnclassifiedSessions(r.Context(), userID)
-		} else {
-			// 属于特定项目的会话
-			sessions, err = h.projectAppSvc.ListSessionsByProject(r.Context(), projectID)
-		}
-	} else {
-		// 向下兼容，拉取该用户的所有会话
-		sessions, err = h.sessionSvc.List(r.Context(), userID)
-	}
-
+	sessions, err := h.sessionAppSvc.ListSessions(r.Context(), userID, projectID, hasProjectIDQuery)
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -95,19 +79,15 @@ func (h *APIHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. 先调用 sessionSvc 保存会话聚合根
-	sess := session.NewSession(req.SessionID, req.UserID, nil)
-	if err := h.sessionSvc.Save(r.Context(), sess); err != nil {
-		h.respondError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	// 2. 如果指定了项目，执行分步物理绑定（容忍最终一致性）
-	if req.ProjectID != "" {
-		if err := h.projectAppSvc.BindSession(r.Context(), req.ProjectID, sess.ID); err != nil {
-			// 容错：仅打印日志，不阻断返回。因为 Session 已经成功保存为未分类
-			h.logger.Printf("Warning: failed to bind session %s to project %s: %v", sess.ID, req.ProjectID, err)
+	// 1. 调用 sessionAppSvc 应用层服务完成创建和最终一致性绑定
+	sess, err := h.sessionAppSvc.CreateSession(r.Context(), req.SessionID, req.UserID, req.ProjectID)
+	if err != nil {
+		if sess == nil {
+			h.respondError(w, http.StatusInternalServerError, err.Error())
+			return
 		}
+		// 仅绑定失败，容错返回成功但打印 Warn 日志
+		h.logger.Printf("Warning: failed to bind session %s to project %s: %v", sess.ID, req.ProjectID, err)
 	}
 
 	h.respondJSON(w, http.StatusOK, map[string]string{"session_id": sess.ID, "status": "created"})

@@ -26,6 +26,7 @@ type APIHandler struct {
 	evolutionAppSvc *memory_app.EvolutionAppService
 	userAppSvc      *user_app.UserAppService
 	projectAppSvc   *project_app.ProjectAppService
+	sessionAppSvc   *memory_app.SessionAppService
 	logger          *log.Logger
 	tools           map[string]tool.Tool
 	activeStreams   sync.Map // 保存 session_id -> message.StreamMessageReader 的映射
@@ -40,6 +41,7 @@ func NewAPIHandler(
 	evolutionAppSvc *memory_app.EvolutionAppService,
 	userAppSvc *user_app.UserAppService,
 	projectAppSvc *project_app.ProjectAppService,
+	sessionAppSvc *memory_app.SessionAppService,
 	tools []tool.Tool,
 	logger *log.Logger,
 ) *APIHandler {
@@ -55,6 +57,7 @@ func NewAPIHandler(
 		evolutionAppSvc: evolutionAppSvc,
 		userAppSvc:      userAppSvc,
 		projectAppSvc:   projectAppSvc,
+		sessionAppSvc:   sessionAppSvc,
 		logger:          logger,
 		tools:           toolsMap,
 	}
