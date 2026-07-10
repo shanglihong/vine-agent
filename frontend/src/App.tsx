@@ -8,6 +8,7 @@ import { useSession } from './hooks/useSession';
 import { useProfile } from './hooks/useProfile';
 import { useChat } from './hooks/useChat';
 import ConfirmModal from './components/ConfirmModal';
+import RightDrawer from './components/RightDrawer';
 
 export default function App() {
   const [currentSessionID, setCurrentSessionID] = useState<string>('');
@@ -100,7 +101,7 @@ export default function App() {
   };
 
   // ── Hooks ──
-  const { userProfile, isEvolving, loadProfile, evolveProfile } = useProfile(userID);
+  const { userProfile, loadProfile, evolveProfile } = useProfile(userID);
 
   const { sessions, loadSessions } = useSession(userID);
 
@@ -327,35 +328,22 @@ export default function App() {
       <MemoryPanel
         userProfile={userProfile}
         isMemoryCollapsed={isMemoryCollapsed}
-        isEvolving={isEvolving}
-        currentSessionID={currentSessionID}
-        onEvolveProfile={() => evolveProfile(currentSessionID)}
         onClose={() => setIsMemoryCollapsed(true)}
-        onShowTooltip={handleShowTooltip}
-        onMoveTooltip={handleMoveTooltip}
-        onHideTooltip={handleHideTooltip}
       />
       {/* 搜索结果右侧抽屉面板 */}
-      <div className={`search-results-panel ${isSearchPanelOpen ? '' : 'collapsed'}`}>
-        <header className="search-results-header">
-          <div className="search-results-header-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15, flexShrink: 0 }}>
-              <circle cx="12" cy="12" r="10" />
-              <line x1="2" y1="12" x2="22" y2="12" />
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-            </svg>
-            <span>Web Sources</span>
-          </div>
-          <button
-            className="search-results-close"
-            onClick={() => setIsSearchPanelOpen(false)}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}>
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </header>
+      <RightDrawer
+        isOpen={isSearchPanelOpen}
+        onClose={() => setIsSearchPanelOpen(false)}
+        title="Web Sources"
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15, flexShrink: 0 }}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </svg>
+        }
+        className="search-results-panel"
+      >
         <div className="search-results-list">
           {fetchedUrls.size > 0 ? (
             <>
@@ -364,6 +352,19 @@ export default function App() {
                 const count = searchResults.filter(item => fetchedUrls.has(normalizeUrl(item.url))).length;
                 return (
                   <div className="search-results-divider-wrapper">
+                    <svg
+                      className="search-results-divider-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+                    </svg>
                     <span className="search-results-divider">Read Pages</span>
                     <span className="divider-count-badge read-count">{count}</span>
                   </div>
@@ -409,6 +410,20 @@ export default function App() {
                 const count = searchResults.filter(item => !fetchedUrls.has(normalizeUrl(item.url))).length;
                 return (
                   <div className="search-results-divider-wrapper">
+                    <svg
+                      className="search-results-divider-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                      <path d="M2 12h20" />
+                    </svg>
                     <span className="search-results-divider">Other Results</span>
                     <span className="divider-count-badge other-count">{count}</span>
                   </div>
@@ -443,6 +458,20 @@ export default function App() {
             <>
               {/* All Results 统一头部 */}
               <div className="search-results-divider-wrapper">
+                <svg
+                  className="search-results-divider-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                  <path d="M2 12h20" />
+                </svg>
                 <span className="search-results-divider">All Results</span>
                 <span className="divider-count-badge other-count">{searchResults.length}</span>
               </div>
@@ -473,7 +502,7 @@ export default function App() {
             </>
           )}
         </div>
-      </div>
+      </RightDrawer>
       <ConfirmModal
         isOpen={sessionToDelete !== null}
         title="删除会话"

@@ -2043,12 +2043,12 @@ body {
 }
 
 /* =========================================================================
-   右侧栏: 长期记忆提取画像 (MemoryPanel)
+   右侧通用抽屉面板组件 (Right Drawer Panel)
    ========================================================================= */
-.memory-panel {
+.right-drawer-panel {
   position: relative;
   height: 100%;
-  width: 310px;
+  width: 280px;
   background: var(--bg-sidebar);
   border-left: 1px solid var(--border-color);
   display: flex;
@@ -2059,34 +2059,51 @@ body {
     border-left-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.memory-panel.collapsed {
-  width: 0;
-  border-left-width: 0;
+.right-drawer-panel.collapsed {
+  width: 0 !important;
+  border-left-width: 0 !important;
 }
 
-/* =========================================================================
-   搜索结果右侧抽屉面板
-   ========================================================================= */
-.search-results-panel {
-  position: relative;
+.right-drawer-panel.resizing {
+  transition: none !important;
+}
+
+/* 拖拽调节宽度手柄 */
+.drawer-resize-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
   height: 100%;
-  width: 420px;
-  background: var(--bg-sidebar);
-  border-left: 1px solid var(--border-color);
+  cursor: ew-resize;
+  z-index: 100;
+  background: transparent;
   display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  flex-shrink: 0;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    border-left-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  align-items: center;
+  justify-content: center;
 }
 
-.search-results-panel.collapsed {
-  width: 0;
-  border-left-width: 0;
+/* 拖拽指示手柄 - 精致圆角小胶囊常驻设计 */
+.drawer-resize-handle::after {
+  content: "";
+  width: 3px;
+  height: 18px;
+  background: var(--text-muted);
+  opacity: 0.5; /* 较明显的默认常驻不透明度，保证在所有显示器上都清晰可见 */
+  border-radius: var(--radius-sm);
+  transition: height 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.search-results-header {
+.drawer-resize-handle:hover::after,
+.right-drawer-panel.resizing .drawer-resize-handle::after {
+  height: 26px;
+  opacity: 0.9; /* hover 或拖拽时高亮变长 */
+  background: var(--primary-color);
+}
+
+.right-drawer-header {
   padding: 14px 18px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
@@ -2094,9 +2111,20 @@ body {
   justify-content: space-between;
   flex-shrink: 0;
   gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.search-results-header-title {
+/* 只有在非 resizing（即点击按钮自动展开收缩过渡）时，让 Header 拥有最小排版宽度，防挤压抖动 */
+.right-drawer-panel:not(.resizing) .right-drawer-header {
+  min-width: 280px;
+}
+
+.right-drawer-panel.resizing .right-drawer-header {
+  min-width: 240px;
+}
+
+.right-drawer-header-title {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -2107,22 +2135,8 @@ body {
   min-width: 0;
 }
 
-.search-results-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 99px;
-  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
-  color: var(--primary-color);
-  font-size: 10px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-}
-
-.search-results-close {
+/* 右侧抽屉内 Header 通用图标按钮（关闭按钮、刷新动作按钮等） */
+.right-drawer-header-btn {
   background: transparent;
   border: none;
   cursor: pointer;
@@ -2130,15 +2144,81 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5px;
-  border-radius: 6px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
   transition: var(--transition-smooth);
   flex-shrink: 0;
 }
 
-.search-results-close:hover {
+.right-drawer-header-btn:hover {
   background: color-mix(in srgb, var(--text-main) 8%, transparent);
   color: var(--text-main);
+}
+
+.right-drawer-header-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.right-drawer-header-btn.spinning svg {
+  animation: spin 1s linear infinite;
+}
+
+.right-drawer-content {
+  flex: 1;
+  overflow-y: auto;
+  width: 100%;
+  box-sizing: border-box;
+  transition: opacity 0.2s ease;
+}
+
+/* 只有在非 resizing（即点击按钮自动展开收缩过渡）时，让内容容器拥有最小排版宽度（默认 280px），防止挤压变形 */
+.right-drawer-panel:not(.resizing) .right-drawer-content {
+  min-width: 280px;
+}
+
+.right-drawer-panel.resizing .right-drawer-content {
+  min-width: 240px;
+}
+
+.right-drawer-panel.collapsed .right-drawer-content {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 大屏幕适配 (屏幕宽度 >= 1450px) */
+@media (min-width: 1450px) {
+  .right-drawer-panel {
+    width: 500px;
+  }
+  
+  .right-drawer-panel:not(.resizing) .right-drawer-header,
+  .right-drawer-panel:not(.resizing) .right-drawer-content {
+    min-width: 500px;
+  }
+
+  .right-drawer-panel.resizing .right-drawer-header,
+  .right-drawer-panel.resizing .right-drawer-content {
+    min-width: 240px;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.memory-divider-wrapper.preferences .memory-divider-icon {
+  fill: var(--success-color);
+}
+
+.memory-divider-wrapper.facts .memory-divider-icon {
+  fill: var(--warning-color);
 }
 
 .search-results-list {
@@ -2196,7 +2276,7 @@ body {
 }
 
 .search-result-title {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-main);
   line-height: 1.35;
@@ -2212,7 +2292,7 @@ body {
 }
 
 .search-result-url {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-muted);
   font-family: var(--font-mono);
   white-space: nowrap;
@@ -2222,7 +2302,7 @@ body {
 }
 
 .search-result-snippet {
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.5;
   margin-top: 4px;
@@ -2287,7 +2367,8 @@ body {
   font-family: var(--font-mono);
 }
 
-.search-results-divider-wrapper {
+.search-results-divider-wrapper,
+.memory-divider-wrapper {
   position: sticky;
   top: -10px;
   z-index: 10;
@@ -2304,16 +2385,28 @@ body {
   transition: var(--transition-smooth);
 }
 
-.search-results-divider-wrapper:not(:first-child) {
+.search-results-divider-wrapper:not(:first-child),
+.memory-divider-wrapper:not(:first-child) {
   margin-top: 16px;
 }
 
-.search-results-divider {
+.search-results-divider,
+.memory-divider {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.search-results-divider-icon,
+.memory-divider-icon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
 }
 
 .divider-count-badge {
@@ -2337,78 +2430,12 @@ body {
   color: var(--text-secondary);
 }
 
-.memory-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  box-sizing: border-box;
-  flex-shrink: 0;
-}
-
-.memory-header-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.memory-header-title-svg {
-  width: 16px;
-  height: 16px;
-  fill: var(--ai-accent);
-  transition: fill 0.3s ease;
-}
-
-.memory-header-title h3 {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.evolve-btn {
-  padding: 6px 12px;
-  border-radius: 14px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-card);
-  color: var(--text-main);
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: var(--transition-smooth);
-  box-shadow: var(--shadow-sm);
-}
-
-.evolve-btn:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-}
-
-.dark .evolve-btn:hover {
-  background: #2b2b2b;
-  border-color: #3f3f46;
-}
-
-.evolve-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.evolve-btn.spinning {
-  background: var(--bg-input);
-}
 
 .memory-content {
-  flex: 1;
-  overflow-y: auto;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 18px;
-  width: 310px;
-  box-sizing: border-box;
-  flex-shrink: 0;
 }
 
 .memory-sec-title {
@@ -2436,43 +2463,141 @@ body {
   fill: var(--warning-color);
 }
 
-.memory-list {
-  list-style: none;
+.memory-section-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  margin-bottom: 10px;
+  width: 100%;
 }
 
-/* 呼吸质感数据卡片项 */
-.memory-item {
+.memory-tags-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0;
+  width: 100%;
+}
+
+.memory-cards-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0;
+  width: 100%;
+}
+
+/* 气泡样式 - 基础类 */
+.memory-tag-item,
+.memory-card-item {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-main);
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--text-main);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+  word-break: break-word;
+  box-sizing: border-box;
   position: relative;
-  box-shadow: var(--shadow-sm);
-  transition: var(--transition-smooth);
 }
 
-.memory-sec.preferences .memory-item {
-  border-left: 3px solid var(--success-color);
+.dark .memory-tag-item,
+.dark .memory-card-item {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
-.memory-sec.facts .memory-item {
-  border-left: 3px solid var(--warning-color);
+.memory-tag-item {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border-radius: 12px;
 }
 
-.memory-item:hover {
-  transform: translateY(-0.5px);
-  box-shadow: var(--shadow-md);
-  border-color: #cbd5e1;
+.memory-card-item {
+  flex: 1 1 100%;
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  line-height: 1.5;
+  border-radius: 8px;
+  padding: 7px 12px;
 }
 
-.dark .memory-item:hover {
-  border-color: #52525b;
+.memory-tag-item:hover,
+.memory-card-item:hover {
+  border-color: color-mix(in srgb, var(--primary-color) 30%, transparent);
+  background: color-mix(in srgb, var(--primary-color) 4%, transparent);
+  transform: translateY(-1px);
+}
+
+.dark .memory-tag-item:hover,
+.dark .memory-card-item:hover {
+  background: rgba(26, 115, 232, 0.06);
+}
+
+/* 前置语义小点 */
+.memory-tag-item::before,
+.memory-card-item::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.memory-tag-item::before {
+  align-self: center;
+}
+
+.memory-card-item::before {
+  align-self: flex-start;
+  margin-top: 6px;
+}
+
+/* 颜色系对齐（User Preferences 翠绿点，Objective Facts 橙黄点） */
+.preferences-tag::before {
+  background: var(--success-color);
+  box-shadow: 0 0 3px color-mix(in srgb, var(--success-color) 40%, transparent);
+}
+
+.facts-tag::before {
+  background: var(--warning-color);
+  box-shadow: 0 0 3px color-mix(in srgb, var(--warning-color) 40%, transparent);
+}
+
+/* 列表项气泡配色突出（使用已有的 success-color / warning-color） */
+.memory-tag-item.preferences-tag,
+.memory-card-item.preferences-tag {
+  background: color-mix(in srgb, var(--success-color) 4%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--success-color) 12%, var(--border-color));
+  color: var(--text-main);
+}
+
+.memory-tag-item.preferences-tag:hover,
+.memory-card-item.preferences-tag:hover {
+  background: color-mix(in srgb, var(--success-color) 9%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--success-color) 35%, var(--border-color));
+  color: color-mix(in srgb, var(--success-color) 90%, var(--text-main));
+  transform: translateY(-1px);
+}
+
+.memory-tag-item.facts-tag,
+.memory-card-item.facts-tag {
+  background: color-mix(in srgb, var(--warning-color) 4%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--warning-color) 12%, var(--border-color));
+  color: var(--text-main);
+}
+
+.memory-tag-item.facts-tag:hover,
+.memory-card-item.facts-tag:hover {
+  background: color-mix(in srgb, var(--warning-color) 9%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--warning-color) 35%, var(--border-color));
+  color: color-mix(in srgb, var(--warning-color) 90%, var(--text-main));
+  transform: translateY(-1px);
 }
 
 .empty-state {

@@ -293,9 +293,6 @@ export default function Sidebar({
         <button
           className="toggle-memory-btn"
           onClick={() => setIsMemoryCollapsed(!isMemoryCollapsed)}
-          onMouseEnter={(e) => onShowTooltip(isMemoryCollapsed ? 'Open Memory Vineyard' : 'Close Memory Vineyard', e)}
-          onMouseMove={(e) => onMoveTooltip(e)}
-          onMouseLeave={() => onHideTooltip()}
         >
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.44 2.5 2.5 0 0 1 0-3.12 3 3 0 0 1 0-3.88 2.5 2.5 0 0 1 0-3.12A2.5 2.5 0 0 1 9.5 2z" />

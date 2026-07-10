@@ -112,20 +112,6 @@ export default function ChatArea({
     setInputValue(text);
   };
 
-  // 检查当前消息流中是否有任何 reasoning 思考块处于展开状态
-  const hasAnyExpanded = messages.some((m, idx) => {
-    const hasThinking = (m.timeline && m.timeline.some(t => t.kind === 'reasoning')) || m.reasoning_content;
-    return hasThinking && expandedReasoning[idx] !== false;
-  });
-
-  // 一键折叠或展开所有 AI 思考过程
-  const handleToggleAllThinking = () => {
-    const newExpanded: Record<number, boolean> = {};
-    messages.forEach((_, idx) => {
-      newExpanded[idx] = !hasAnyExpanded;
-    });
-    setExpandedReasoning(newExpanded);
-  };
 
   // 强视觉会话状态指示 Badge 标签 (带 LED 脉冲呼吸指示点)
   const renderStatusBadge = () => {
@@ -247,30 +233,6 @@ export default function ChatArea({
 
           {/* 精致扁平状态徽标 */}
           {renderStatusBadge()}
-        </div>
-        <div className="chat-header-actions">
-          {/* 全局折叠所有思考的智能按钮 */}
-          {messages.length > 0 && messages.some(m => (m.timeline && m.timeline.some(t => t.kind === 'reasoning')) || m.reasoning_content) && (
-            <button
-              className="toggle-thinking-btn"
-              onClick={handleToggleAllThinking}
-              title={hasAnyExpanded ? '收起所有思考过程' : '展开所有思考过程'}
-            >
-              {hasAnyExpanded ? (
-                /* 展开中，显示向上收起的双折线 Chevron */
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="17 11 12 6 7 11" />
-                  <polyline points="17 18 12 13 7 18" />
-                </svg>
-              ) : (
-                /* 折叠中，显示向下展开的双折线 Chevron */
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="7 13 12 18 17 13" />
-                  <polyline points="7 6 12 11 17 6" />
-                </svg>
-              )}
-            </button>
-          )}
         </div>
       </header>
 
