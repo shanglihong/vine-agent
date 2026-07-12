@@ -7,10 +7,8 @@ import (
 	"strings"
 	"time"
 	"vine-agent/cmd/api"
+	"vine-agent/cmd/bootstrap"
 	"vine-agent/cmd/scheduler"
-	"vine-agent/cmd/scheduler/job"
-	bootstrap2 "vine-agent/cmd/server/bootstrap"
-
 	"vine-agent/domain/chat"
 	"vine-agent/domain/chat/chat_model"
 	"vine-agent/infra/client/deepseek"
@@ -23,15 +21,14 @@ func main() {
 
 	// 依赖注入
 	chatModel := getChatModel()
-	repoContainer := bootstrap2.GetRepoContainer()
-	domainContainer := bootstrap2.GetDomainContainer(repoContainer, chatModel)
-	appContainer := bootstrap2.GetAppContainer(domainContainer, chatModel)
+	repoContainer := bootstrap.GetRepoContainer()
+	domainContainer := bootstrap.GetDomainContainer(repoContainer, chatModel)
+	appContainer := bootstrap.GetAppContainer(domainContainer, chatModel)
 
 	// 定时任务
-	cronScheduler := scheduler.NewCronScheduler()
-	cronScheduler.Register("*/1 * * * *", job.NewEvolutionJob(domainContainer, appContainer).Run)
-	cronScheduler.Start()
-	defer cronScheduler.Stop()
+	jobScheduler := scheduler.NewScheduler(domainContainer, appContainer)
+	jobScheduler.Start()
+	defer jobScheduler.Stop()
 
 	// http-api
 	handler := api.NewAPIHandler(domainContainer, appContainer)
@@ -46,7 +43,7 @@ func main() {
 		log.Printf("<-- %s %s (elapsed %v)", r.Method, r.URL.Path, time.Since(start))
 	})
 
-	port := bootstrap2.GetConfig().Server.Port
+	port := bootstrap.GetConfig().Server.Port
 	if port != "" && !strings.HasPrefix(port, ":") {
 		port = ":" + port
 	}

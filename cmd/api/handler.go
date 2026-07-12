@@ -7,7 +7,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
-	bootstrap2 "vine-agent/cmd/server/bootstrap"
+	"vine-agent/cmd/bootstrap"
 	"vine-agent/infra/tools"
 
 	"vine-agent/app/agent"
@@ -35,7 +35,7 @@ type APIHandler struct {
 }
 
 // NewAPIHandler 构造 APIHandler
-func NewAPIHandler(domainContainer *bootstrap2.DomainContainer, appContainer *bootstrap2.AppContainer) *APIHandler {
+func NewAPIHandler(domainContainer *bootstrap.DomainContainer, appContainer *bootstrap.AppContainer) *APIHandler {
 	ts := []tool.Tool{
 		tools.NewWebSearchTool(),
 		tools.NewWebCrawlTool(),

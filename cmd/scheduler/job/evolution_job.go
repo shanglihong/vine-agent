@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 	"vine-agent/app/memory"
-	bootstrap2 "vine-agent/cmd/server/bootstrap"
+	"vine-agent/cmd/bootstrap"
 	"vine-agent/domain/memory/session"
 )
 
@@ -14,7 +14,7 @@ type EvolutionJob struct {
 	evolutionApp *memory.EvolutionAppService
 }
 
-func NewEvolutionJob(domain *bootstrap2.DomainContainer, app *bootstrap2.AppContainer) *EvolutionJob {
+func NewEvolutionJob(domain *bootstrap.DomainContainer, app *bootstrap.AppContainer) *EvolutionJob {
 	return &EvolutionJob{
 		sessionSvc:   domain.SessionService,
 		evolutionApp: app.EvolutionAppService,
