@@ -15,7 +15,7 @@ import (
 type UserAppService struct {
 	userSvc         user.UserService
 	sessionSvc      session.SessionService
-	profileRepo     profile.ProfileRepository
+	profileSvc      profile.ProfileService
 	evolutionAppSvc *memory.EvolutionAppService
 }
 
@@ -23,13 +23,13 @@ type UserAppService struct {
 func NewUserAppService(
 	userSvc user.UserService,
 	sessionSvc session.SessionService,
-	profileRepo profile.ProfileRepository,
+	profileSvc profile.ProfileService,
 	evolutionAppSvc *memory.EvolutionAppService,
 ) *UserAppService {
 	return &UserAppService{
 		userSvc:         userSvc,
 		sessionSvc:      sessionSvc,
-		profileRepo:     profileRepo,
+		profileSvc:      profileSvc,
 		evolutionAppSvc: evolutionAppSvc,
 	}
 }
@@ -50,7 +50,7 @@ func (a *UserAppService) GetUserProfile(ctx context.Context, userIDOrSessionID s
 		}
 	}
 
-	prof, err := a.profileRepo.GetByUserID(ctx, userID)
+	prof, err := a.profileSvc.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

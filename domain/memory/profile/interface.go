@@ -28,3 +28,9 @@ type EvolutionService interface {
 	// Evolve 核心记忆进化逻辑。它将调用 Extractor 从增量消息中提炼偏好和事实，并合并至现有 Profile
 	Evolve(ctx context.Context, prof *Profile, messages []message.Message) error
 }
+
+type ProfileService interface {
+	// GetByUserID 获取指定用户的记忆画像。如果不存在，返回 (nil, nil)
+	GetByUserID(ctx context.Context, userID string) (*Profile, error)
+	Save(ctx context.Context, prof *Profile) error
+}

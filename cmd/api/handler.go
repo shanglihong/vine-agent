@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	bootstrap2 "vine-agent/cmd/server/bootstrap"
+	"vine-agent/infra/tools"
 
 	"vine-agent/app/agent"
 	memory_app "vine-agent/app/memory"
@@ -33,32 +35,28 @@ type APIHandler struct {
 }
 
 // NewAPIHandler 构造 APIHandler
-func NewAPIHandler(
-	agentSvc agent.Service,
-	interactionSvc agent.InteractionService,
-	sessionSvc session.SessionService,
-	profileRepo profile.ProfileRepository,
-	evolutionAppSvc *memory_app.EvolutionAppService,
-	userAppSvc *user_app.UserAppService,
-	projectAppSvc *project_app.ProjectAppService,
-	sessionAppSvc *memory_app.SessionAppService,
-	tools []tool.Tool,
-	logger *log.Logger,
-) *APIHandler {
+func NewAPIHandler(domainContainer *bootstrap2.DomainContainer, appContainer *bootstrap2.AppContainer) *APIHandler {
+	ts := []tool.Tool{
+		tools.NewWebSearchTool(),
+		tools.NewWebCrawlTool(),
+		tools.NewListDirTool(),
+		tools.NewReadFilesTool(),
+		tools.NewWriteFileTool(),
+	}
 	toolsMap := make(map[string]tool.Tool)
-	for _, t := range tools {
+	for _, t := range ts {
 		toolsMap[t.Info().Name] = t
 	}
+
 	return &APIHandler{
-		agentSvc:        agentSvc,
-		interactionSvc:  interactionSvc,
-		sessionSvc:      sessionSvc,
-		profileRepo:     profileRepo,
-		evolutionAppSvc: evolutionAppSvc,
-		userAppSvc:      userAppSvc,
-		projectAppSvc:   projectAppSvc,
-		sessionAppSvc:   sessionAppSvc,
-		logger:          logger,
+		agentSvc:        appContainer.AgentService,
+		interactionSvc:  appContainer.InteractionService,
+		sessionSvc:      domainContainer.SessionService,
+		profileRepo:     domainContainer.ProfileService,
+		evolutionAppSvc: appContainer.EvolutionAppService,
+		userAppSvc:      appContainer.UserAppService,
+		projectAppSvc:   appContainer.ProjectAppService,
+		sessionAppSvc:   appContainer.SessionAppService,
 		tools:           toolsMap,
 	}
 }

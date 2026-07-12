@@ -14,19 +14,19 @@ import (
 // EvolutionAppService 记忆进化应用层服务，负责编排短期会话与长期记忆的流转与演进
 type EvolutionAppService struct {
 	sessionSvc   session.SessionService
-	profileRepo  profile.ProfileRepository
+	profileSvc   profile.ProfileService
 	evolutionSvc profile.EvolutionService
 }
 
 // NewEvolutionAppService 构造一个 EvolutionAppService 实例
 func NewEvolutionAppService(
 	sessionSvc session.SessionService,
-	profileRepo profile.ProfileRepository,
+	profileSvc profile.ProfileService,
 	evolutionSvc profile.EvolutionService,
 ) *EvolutionAppService {
 	return &EvolutionAppService{
 		sessionSvc:   sessionSvc,
-		profileRepo:  profileRepo,
+		profileSvc:   profileSvc,
 		evolutionSvc: evolutionSvc,
 	}
 }
@@ -79,7 +79,7 @@ func (a *EvolutionAppService) TriggerEvolution(ctx context.Context, sessionIDs [
 			}
 
 			// 获取用户长期记忆画像
-			prof, err := a.profileRepo.GetByUserID(ctx, userID)
+			prof, err := a.profileSvc.GetByUserID(ctx, userID)
 			if err != nil {
 				evolveErrsMu.Lock()
 				evolveErrs = append(evolveErrs, fmt.Errorf("failed to retrieve profile for user %s: %w", userID, err))
@@ -101,7 +101,7 @@ func (a *EvolutionAppService) TriggerEvolution(ctx context.Context, sessionIDs [
 			}
 
 			// 持久化画像
-			err = a.profileRepo.Save(ctx, prof)
+			err = a.profileSvc.Save(ctx, prof)
 			if err != nil {
 				evolveErrsMu.Lock()
 				evolveErrs = append(evolveErrs, fmt.Errorf("failed to save profile for user %s: %w", userID, err))
