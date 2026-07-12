@@ -81,8 +81,7 @@ func expandPath(path string) string {
 
 func LoadConfig() *Config {
 	cfg, _ := LoadConfigFromFile("config.yaml")
-	env := strings.ToLower(os.Getenv("APP_ENV"))
-	if env == "dev" {
+	if utils.IsDev() {
 		return DefaultConfig()
 	}
 	return cfg
