@@ -1,4 +1,4 @@
-package api
+package router1
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 	"vine-agent/domain/project"
 )
 
-// 1. POST /api/projects
+// 1. POST /http/projects
 func (h *APIHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	if h.setCORS(w, r) {
 		return
@@ -44,7 +44,7 @@ func (h *APIHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// 2. GET /api/projects?user_id=xxx
+// 2. GET /http/projects?user_id=xxx
 func (h *APIHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
 	if h.setCORS(w, r) {
 		return
@@ -65,7 +65,7 @@ func (h *APIHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, list)
 }
 
-// 3. GET /api/projects/{id}
+// 3. GET /http/projects/{id}
 func (h *APIHandler) GetProject(w http.ResponseWriter, r *http.Request) {
 	if h.setCORS(w, r) {
 		return
@@ -90,7 +90,7 @@ func (h *APIHandler) GetProject(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, proj)
 }
 
-// 4. PUT /api/projects/{id}
+// 4. PUT /http/projects/{id}
 func (h *APIHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	if h.setCORS(w, r) {
 		return
@@ -131,7 +131,7 @@ func (h *APIHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, map[string]string{"status": "updated"})
 }
 
-// 5. DELETE /api/projects/{id}
+// 5. DELETE /http/projects/{id}
 func (h *APIHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	if h.setCORS(w, r) {
 		return
@@ -156,7 +156,7 @@ func (h *APIHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// 6. GET /api/projects/{id}/sessions
+// 6. GET /http/projects/{id}/sessions
 func (h *APIHandler) ListProjectSessions(w http.ResponseWriter, r *http.Request) {
 	if h.setCORS(w, r) {
 		return

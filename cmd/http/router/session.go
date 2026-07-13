@@ -1,81 +1,67 @@
-package api
+package router1
 
 import (
 	"encoding/json"
 	"errors"
+	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
-	"time"
-
 	"vine-agent/app/agent"
+	"vine-agent/cmd/bootstrap"
+	"vine-agent/cmd/http/dto"
 	"vine-agent/domain/chat"
 	"vine-agent/domain/memory/session"
 	"vine-agent/domain/message"
 	"vine-agent/domain/tool"
 )
 
-// 1. GET /api/sessions?user_id=xxx&project_id=yyy
-func (h *APIHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
-	if h.setCORS(w, r) {
-		return
-	}
-	userID := r.URL.Query().Get("user_id")
-	if userID == "" {
-		h.respondError(w, http.StatusBadRequest, "missing user_id query parameter")
-		return
-	}
+type SessionHandler struct{}
 
-	hasProjectIDQuery := r.URL.Query().Has("project_id")
-	projectID := r.URL.Query().Get("project_id")
-
-	sessions, err := h.sessionAppSvc.ListSessions(r.Context(), userID, projectID, hasProjectIDQuery)
+// ListSessions GET /http/sessions?user_id=xxx&project_id=yyy
+func (h *SessionHandler) ListSessions(c *gin.Context) {
+	var sessReq dto.SessReq
+	err := c.ShouldBind(&sessReq)
 	if err != nil {
-		h.respondError(w, http.StatusInternalServerError, err.Error())
+		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
-	// 查找用户的所有项目，并建立 session_id -> project_id 映射，用于树形平铺展示
-	sessionProjMap := make(map[string]string)
-	if projs, err := h.projectAppSvc.ListProjects(r.Context(), userID); err == nil {
-		for _, p := range projs {
-			if sesses, err := h.projectAppSvc.ListSessionsByProject(r.Context(), p.ID); err == nil {
-				for _, s := range sesses {
-					sessionProjMap[s.ID] = p.ID
-				}
-			}
-		}
+	if sessReq.ProjectID == "" {
+		_ = c.Error(errors.New("user_id required"))
+		return
 	}
 
-	// 转换成轻量级返回结构
-	type sessResp struct {
-		ID        string    `json:"id"`
-		UserID    string    `json:"user_id"`
-		Name      string    `json:"name"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Status    string    `json:"status,omitempty"`
-		ProjectID string    `json:"project_id,omitempty"`
+	sessions, err := bootstrap.GetAppContainer().SessionAppService.ListSessions(c.Request.Context(), sessReq.UserID, sessReq.ProjectID)
+	if err != nil {
+		_ = c.Error(err)
+		return
 	}
-	list := make([]sessResp, 0, len(sessions))
+	sessionProjMap := make(map[string]string)
 	for _, s := range sessions {
-		status := ""
-		if s.Metadata != nil {
-			status = s.Metadata["status"]
-		}
+		sessionProjMap[s.ID] = sessReq.ProjectID
+	}
+
+	list := make([]dto.SessResp, 0, len(sessions))
+	for _, s := range sessions {
 		projID := sessionProjMap[s.ID]
-		list = append(list, sessResp{
+		list = append(list, dto.SessResp{
 			ID:        s.ID,
 			UserID:    s.UserID,
 			Name:      s.Name,
 			UpdatedAt: s.UpdatedAt,
-			Status:    status,
+			Status:    s.GetStatus(),
 			ProjectID: projID,
 		})
 	}
 
-	h.respondJSON(w, http.StatusOK, list)
+	bindErr := c.ShouldBind(dto.NewSuccessResp(list))
+	if bindErr != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
 }
 
-// 2. POST /api/sessions
+// 2. POST /http/sessions
 func (h *APIHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 	if h.setCORS(w, r) {
 		return
@@ -108,7 +94,7 @@ func (h *APIHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, map[string]string{"session_id": sess.ID, "status": "created"})
 }
 
-// 3. GET /api/sessions/{id}/messages
+// 3. GET /http/sessions/{id}/messages
 func (h *APIHandler) GetSessionMessages(w http.ResponseWriter, r *http.Request) {
 	if h.setCORS(w, r) {
 		return
@@ -138,7 +124,7 @@ func (h *APIHandler) GetSessionMessages(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// 4. POST /api/sessions/{id}/chat
+// 4. POST /http/sessions/{id}/chat
 func (h *APIHandler) Chat(w http.ResponseWriter, r *http.Request) {
 	if h.setCORS(w, r) {
 		return
@@ -256,7 +242,7 @@ func (h *APIHandler) Chat(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// 5. POST /api/sessions/{id}/confirm
+// 5. POST /http/sessions/{id}/confirm
 func (h *APIHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 	if h.setCORS(w, r) {
 		return
@@ -363,7 +349,7 @@ func (h *APIHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// 6. POST /api/sessions/{id}/cancel
+// 6. POST /http/sessions/{id}/cancel
 func (h *APIHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 	if h.setCORS(w, r) {
 		return
@@ -395,7 +381,7 @@ func (h *APIHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, map[string]string{"status": "cancelled"})
 }
 
-// 7. DELETE /api/sessions/{id}
+// 7. DELETE /http/sessions/{id}
 func (h *APIHandler) DeleteSession(w http.ResponseWriter, r *http.Request) {
 	if h.setCORS(w, r) {
 		return
@@ -419,7 +405,7 @@ func (h *APIHandler) DeleteSession(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, map[string]string{"session_id": sessionID, "status": "deleted"})
 }
 
-// 8. POST /api/sessions/{id}/rename
+// 8. POST /http/sessions/{id}/rename
 func (h *APIHandler) RenameSession(w http.ResponseWriter, r *http.Request) {
 	if h.setCORS(w, r) {
 		return
