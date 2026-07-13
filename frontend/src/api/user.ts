@@ -1,19 +1,13 @@
 import { Profile, UserInfo } from '../types';
+import { request } from './client';
 
 export async function fetchUserInfo(): Promise<UserInfo> {
-  const res = await fetch('/api/user');
-  if (!res.ok) {
-    throw new Error(`Failed to fetch user info: status ${res.status}`);
-  }
-  return res.json();
+  const data = await request<UserInfo>('/api/user');
+  return data;
 }
 
 export async function fetchUserProfile(userId: string): Promise<Profile> {
-  const res = await fetch(`/api/users/${userId}/profile`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch profile: status ${res.status}`);
-  }
-  const data = await res.json();
+  const data = await request<Profile>(`/api/users/${userId}/profile`);
   return {
     user_id: data.user_id,
     preferences: data.preferences || [],
@@ -22,13 +16,9 @@ export async function fetchUserProfile(userId: string): Promise<Profile> {
 }
 
 export async function evolveUserProfile(userId: string, sessionId: string): Promise<Profile> {
-  const res = await fetch(`/api/users/${userId}/evolve?session_id=${sessionId}`, {
+  const data = await request<Profile>(`/api/users/${userId}/evolve?session_id=${sessionId}`, {
     method: 'POST',
   });
-  if (!res.ok) {
-    throw new Error(`Failed to evolve profile: status ${res.status}`);
-  }
-  const data = await res.json();
   return {
     user_id: data.user_id,
     preferences: data.preferences || [],
