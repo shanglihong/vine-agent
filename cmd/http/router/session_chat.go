@@ -2,10 +2,7 @@ package router
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
 	"sync"
@@ -16,6 +13,8 @@ import (
 	"vine-agent/domain/message"
 	"vine-agent/domain/tool"
 	"vine-agent/infra/tools"
+
+	"github.com/gin-gonic/gin"
 )
 
 var (
@@ -78,11 +77,8 @@ func (h *SessionChatHandler) ResumeChatAgent(ctx context.Context, req dto.SessRe
 
 func (h *SessionChatHandler) Chat(c *gin.Context) {
 	var req dto.SessChatReq
-	if err := c.ShouldBindUri(&req); err != nil {
-		_ = c.Error(err)
-		return
-	}
-	if err := c.ShouldBind(&req); err != nil {
+
+	if err := Bind(c, &req); err != nil {
 		_ = c.Error(err)
 		return
 	}
@@ -97,16 +93,12 @@ func (h *SessionChatHandler) Chat(c *gin.Context) {
 		_ = reader.Close()
 	}()
 
-	h.stream2Resp(c, reader, err)
+	h.stream2Resp(c, reader)
 }
 
 func (h *SessionChatHandler) Resume(c *gin.Context) {
 	var req dto.SessResumeChatReq
-	if err := c.ShouldBindUri(&req); err != nil {
-		_ = c.Error(err)
-		return
-	}
-	if err := c.ShouldBind(&req); err != nil {
+	if err := Bind(c, &req); err != nil {
 		_ = c.Error(err)
 		return
 	}
@@ -120,77 +112,64 @@ func (h *SessionChatHandler) Resume(c *gin.Context) {
 		_ = reader.Close()
 	}()
 
-	h.stream2Resp(c, reader, err)
+	h.stream2Resp(c, reader)
 }
 
 func (h *SessionChatHandler) Cancel(c *gin.Context) {
 	var req dto.SessIdReq
-	if err := c.ShouldBindUri(&req); err != nil {
-		_ = c.Error(err)
-		return
-	}
-	if err := c.ShouldBind(&req); err != nil {
+	if err := Bind(c, &req); err != nil {
 		_ = c.Error(err)
 		return
 	}
 
 	activeStreams.Delete(req.SessionID)
 	c.JSON(http.StatusOK, dto.NewSuccessResp(dto.SessResp{Status: "cancelled"}))
-
 }
 
-// Helper: SSE 格式数据组装发送
-func sendSSEEvent(w io.Writer, eventType string, data any) {
-	var payload []byte
-	var err error
-	if str, ok := data.(string); ok {
-		payload, err = json.Marshal(str)
-		if err != nil {
-			payload = []byte(str)
-		}
-	} else {
-		payload, err = json.Marshal(data)
-		if err != nil {
-			payload = []byte(fmt.Sprintf(`{"error":"%s"}`, err.Error()))
-		}
-	}
-	_, _ = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", eventType, string(payload))
-}
-
-func (h *SessionChatHandler) stream2Resp(c *gin.Context, reader message.StreamMessageReader, err error) bool {
+func (h *SessionChatHandler) stream2Resp(c *gin.Context, reader message.StreamMessageReader) bool {
 	return c.Stream(
 		func(w io.Writer) bool {
 			msg, readerErr := reader.Recv()
 			if readerErr != nil {
-				if errors.Is(err, io.EOF) {
+				if errors.Is(readerErr, io.EOF) {
 					c.SSEvent("done", "")
-					return false // 执行结束
+					return false
 				}
 				var interruptErr *session.InterruptError
-				if errors.As(err, &interruptErr) {
+				if errors.As(readerErr, &interruptErr) {
 					c.SSEvent("interrupt", map[string]any{
 						"session_id":    interruptErr.SessionID,
 						"pending_tools": interruptErr.ToolCalls,
 					})
 					return false
 				}
-				c.SSEvent("error", map[string]string{"message": err.Error()})
+				c.SSEvent("error", map[string]string{"message": readerErr.Error()})
 				return false
 			}
+
 			if msg != nil {
 				switch msg.Type {
 				case message.StreamMessageTextDelta:
-					c.SSEvent("text_delta", msg.Content)
+					// 🔥 关键修改：将字符串包装成 JSON
+					jsonData := map[string]string{
+						"content": msg.Content,
+					}
+					c.SSEvent("text_delta", jsonData)
+
 				case message.StreamMessageReasoningDelta:
-					c.SSEvent("reasoning_delta", msg.Content)
+					jsonData := map[string]string{
+						"content": msg.Content,
+					}
+					c.SSEvent("reasoning_delta", jsonData)
+
 				case message.StreamMessageToolCall:
 					c.SSEvent("tool_call", msg.ToolCall)
+
 				case message.StreamMessageToolResult:
 					c.SSEvent("tool_result", msg.ToolResult)
 				}
 			}
-
-			return true // 开启下一轮
+			return true
 		})
 }
 

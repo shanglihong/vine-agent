@@ -8,16 +8,11 @@ export function useSession(userID: string) {
   // 1. 获取会话历史列表（不含自动选中，由调用方决定）
   const loadSessions = async (
     currentSessionID: string,
-    onFirstLoad?: (firstSessionId: string) => void,
   ) => {
     if (!userID) return;
     try {
-      const data = await fetchSessions(userID);
+      const data = await fetchSessions(currentSessionID, userID, '');
       setSessions(data);
-      // 如果有会话，默认选中第一个
-      if (data.length > 0 && !currentSessionID && onFirstLoad) {
-        onFirstLoad(data[0].id);
-      }
     } catch (err: any) {
       alert('Failed to load sessions. Network or backend connection error: ' + err.message);
       console.error('加载会话失败:', err);

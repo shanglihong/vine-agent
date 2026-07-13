@@ -391,7 +391,7 @@ export default function MessageList({
                         </span>
                       )}
                       {searchItems.length > 0 && (() => {
-                        const isActive = isSearchPanelOpen && 
+                        const isActive = isSearchPanelOpen &&
                           searchResults.length === searchItems.length &&
                           searchResults.every((val, index) => val.url === searchItems[index]?.url);
                         return (

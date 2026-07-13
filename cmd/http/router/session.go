@@ -17,26 +17,22 @@ func GetSessionHandler() *SessionHandler {
 }
 
 func (h *SessionHandler) ListSessions(ctx context.Context, sessReq dto.SessReq) ([]dto.SessResp, error) {
-	sessions, err := bootstrap.GetAppContainer().SessionAppService.ListSessions(ctx, sessReq.UserID, sessReq.ProjectID)
+	projects, err := bootstrap.GetAppContainer().ProjectAppService.ListSessions(ctx, sessReq.UserID, sessReq.ProjectID)
 	if err != nil {
 		return nil, err
 	}
-	sessionProjMap := make(map[string]string)
-	for _, s := range sessions {
-		sessionProjMap[s.ID] = sessReq.ProjectID
-	}
-
-	list := make([]dto.SessResp, 0, len(sessions))
-	for _, s := range sessions {
-		projID := sessionProjMap[s.ID]
-		list = append(list, dto.SessResp{
-			ID:        s.ID,
-			UserID:    s.UserID,
-			Name:      s.Name,
-			UpdatedAt: s.UpdatedAt,
-			Status:    s.GetStatus(),
-			ProjectID: projID,
-		})
+	list := make([]dto.SessResp, 0)
+	for _, p := range projects {
+		for _, s := range p.Sessions {
+			list = append(list, dto.SessResp{
+				ID:        s.ID,
+				UserID:    s.UserID,
+				Name:      s.Name,
+				UpdatedAt: s.UpdatedAt,
+				Status:    s.GetStatus(),
+				ProjectID: p.ID,
+			})
+		}
 	}
 	return list, nil
 }

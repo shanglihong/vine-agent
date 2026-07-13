@@ -3,6 +3,7 @@ package project
 import (
 	"fmt"
 	"time"
+	"vine-agent/domain/memory/session"
 )
 
 // Project 代表项目聚合根实体，作为项目的顶级容器
@@ -15,6 +16,8 @@ type Project struct {
 	Metadata    map[string]string `json:"metadata"`
 	CreatedAt   time.Time         `json:"created_at"`
 	UpdatedAt   time.Time         `json:"updated_at"`
+
+	Sessions []*session.Session `json:"sessions,omitempty"`
 }
 
 // NewProject 构造一个新的项目实例

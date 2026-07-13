@@ -101,3 +101,7 @@
 *   **目标**：在遇到阻塞性问题时能够实时协同人类排查。
 *   **具体任务**：
     - [ ] **协同调试流**：在 Agent 执行编译或自动化测试失败时，支持挂起流程，整理报错信息并提供若干条修复选项（或提供交互终端）推送给前端，等待用户确认修复后再继续任务。
+
+
+
+[vine-agent] 2026/07/13 21:56:00 evolution_job.go:39: [EvolutionJob] 批量触发记忆演进失败: failed to evolve profile for user default_user: failed to call chat model for extraction: http error (status 400, code: invalid_request_error, type: invalid_request_error): An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'. (insufficient tool messages following tool_calls message)

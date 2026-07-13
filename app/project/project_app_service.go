@@ -66,3 +66,15 @@ func (a *ProjectAppService) DeleteSessionInProject(ctx context.Context, sessID, 
 func (a *ProjectAppService) GetProjectBySession(ctx context.Context, sessionID string) (*project.Project, error) {
 	return a.projectSvc.GetProjectBySession(ctx, sessionID)
 }
+
+// ListSessions 封装 Query 查询过滤与未分类条件分支选择
+func (a *ProjectAppService) ListSessions(ctx context.Context, userID, projectID string) ([]*project.Project, error) {
+	if projectID == "" {
+		return a.projectSvc.ListProjects(ctx, userID)
+	}
+	p, err := a.projectSvc.GetProject(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	return []*project.Project{p}, nil
+}

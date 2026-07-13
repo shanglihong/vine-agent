@@ -207,85 +207,136 @@ export function useChat({ userID, selectedModel, loadSessions, evolveProfile }: 
 
     const decoder = new TextDecoder();
     let buffer = '';
-    let currentEvent = '';
 
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || ''; // 尾部未满行退回 buffer
+      buffer = buffer.replace(/\r\n/g, '\n');
 
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
+      const blocks = buffer.split('\n\n');
+      buffer = blocks.pop() || '';
 
-        if (trimmed.startsWith('event:')) {
-          currentEvent = trimmed.slice(6).trim();
-        } else if (trimmed.startsWith('data:')) {
-          const payload = trimmed.slice(5).trim();
-          handleSSEChunk(currentEvent, payload, currentSessionID);
+      for (const block of blocks) {
+        const trimmedBlock = block.trim();
+        if (!trimmedBlock) continue;
+
+        let currentEvent = '';
+        let currentData = '';
+        const lines = trimmedBlock.split('\n');
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (trimmedLine.startsWith('event:')) {
+            currentEvent = trimmedLine.slice(6).trim();
+          } else if (trimmedLine.startsWith('data:')) {
+            // 如果有多行 data，拼接它们
+            const dataValue = trimmedLine.slice(5).trim();
+            if (currentData) {
+              currentData += dataValue;
+            } else {
+              currentData = dataValue;
+            }
+          }
         }
+
+        handleSSEChunk(currentEvent, currentData, currentSessionID);
       }
     }
   };
 
   const handleSSEChunk = (event: string, data: string, currentSessionID: string) => {
     switch (event) {
-      case 'text_delta':
+      case 'text_delta': {
+        // 优化：尝试多种解析方式
         let text = data;
-        try {
-          text = JSON.parse(data);
-        } catch {
-          // 降级使用 raw data
+
+        // 如果 data 为空，跳过
+        if (!data || data === '') {
+          return;
         }
+
+        try {
+          // 尝试解析 JSON
+          const parsed = JSON.parse(data);
+          // 如果是对象，提取 content 字段
+          if (typeof parsed === 'object' && parsed !== null) {
+            text = parsed.content || parsed.text || JSON.stringify(parsed);
+          } else if (typeof parsed === 'string') {
+            text = parsed;
+          }
+        } catch {
+          // 不是 JSON，直接使用原始数据
+          text = data;
+        }
+
+        // 确保是字符串
+        text = String(text);
 
         updateLastAiMessage((msg) => {
-          msg.content += text;
+          msg.content = (msg.content || '') + text;
         });
         break;
+      }
 
-      case 'reasoning_delta':
+      case 'reasoning_delta': {
         let rText = data;
-        try {
-          rText = JSON.parse(data);
-        } catch {
-          // 降级使用 raw data
+        if (!data || data === '') {
+          return;
         }
+
+        try {
+          const parsed = JSON.parse(data);
+          if (typeof parsed === 'object' && parsed !== null) {
+            rText = parsed.content || parsed.text || JSON.stringify(parsed);
+          } else if (typeof parsed === 'string') {
+            rText = parsed;
+          }
+        } catch {
+          rText = data;
+        }
+
+        rText = String(rText);
+
         updateLastAiMessage((msg) => {
           const tl = [...(msg.timeline || [])];
           const last = tl[tl.length - 1];
           if (last && last.kind === 'reasoning') {
-            tl[tl.length - 1] = { kind: 'reasoning', text: last.text + rText };
+            tl[tl.length - 1] = { kind: 'reasoning', text: (last.text || '') + rText };
           } else {
             tl.push({ kind: 'reasoning', text: rText });
           }
           msg.timeline = tl;
         });
         break;
+      }
 
-      case 'tool_call':
+      case 'tool_call': {
+        if (!data) break;
         try {
           const toolCall = JSON.parse(data);
           updateLastAiMessage((msg) => {
             const item: TimelineItem = {
               kind: 'tool_call',
-              toolCallId: toolCall.id,
-              toolName: toolCall.function?.name,
-              toolArgs: toolCall.function?.arguments,
+              toolCallId: toolCall.id || toolCall.tool_call_id,
+              toolName: toolCall.function?.name || toolCall.name,
+              toolArgs: toolCall.function?.arguments || toolCall.arguments,
             };
             msg.timeline = [...(msg.timeline || []), item];
           });
-        } catch { }
+        } catch (error) {
+          console.warn('[SSE] tool_call 解析失败:', error, data);
+        }
         break;
+      }
 
-      case 'tool_result':
+      case 'tool_result': {
+        if (!data) break;
         try {
           const toolResult = JSON.parse(data);
           updateLastAiMessage((msg) => {
             const tl = [...(msg.timeline || [])];
-            // 找到最近的对应 tool_call_id 条目，填充 output/error
             let callIdx = -1;
             for (let k = tl.length - 1; k >= 0; k--) {
               if (tl[k].kind === 'tool_call' && tl[k].toolCallId === toolResult.tool_call_id) {
@@ -294,47 +345,71 @@ export function useChat({ userID, selectedModel, loadSessions, evolveProfile }: 
               }
             }
             if (callIdx !== -1) {
-              tl[callIdx] = { ...tl[callIdx], output: toolResult.output, error: toolResult.error } as TimelineItem;
+              tl[callIdx] = {
+                ...tl[callIdx],
+                output: toolResult.output,
+                error: toolResult.error
+              } as TimelineItem;
             } else {
-              // 找不到对应 call，追加一个无名工具结果
-              tl.push({ kind: 'tool_call', toolCallId: toolResult.tool_call_id, output: toolResult.output, error: toolResult.error });
+              tl.push({
+                kind: 'tool_call',
+                toolCallId: toolResult.tool_call_id,
+                output: toolResult.output,
+                error: toolResult.error
+              });
             }
             msg.timeline = tl;
           });
-        } catch { }
+        } catch (error) {
+          console.warn('[SSE] tool_result 解析失败:', error, data);
+        }
         break;
+      }
 
-      case 'interrupt':
+      case 'interrupt': {
+        if (!data) break;
         try {
           const interruptData = JSON.parse(data);
           setPendingInterrupt(interruptData);
           setIsStreaming(false);
-          loadSessions(); // 刷新 sidebar 中会话的 pending 状态
-        } catch { }
+          loadSessions();
+        } catch (error) {
+          console.warn('[SSE] interrupt 解析失败:', error, data);
+        }
         break;
+      }
 
-      case 'done':
+      case 'done': {
         setIsStreaming(false);
-        loadSessions(); // 刷新会话的更新时间
-        // 流式已在内存中构建了与历史加载相同的 timeline 结构，无需再次请求
-        // 对话结束后，触发一次偏好事实进化以保画像同步
+        loadSessions();
         setTimeout(() => {
           evolveProfile(currentSessionID);
         }, 1200);
         break;
+      }
 
-      case 'error':
+      case 'error': {
+        let errorMsg = data;
         try {
           const errObj = JSON.parse(data);
-          updateLastAiMessage((msg) => {
-            msg.content += `\n【系统错误】${errObj.message}`;
-          });
-        } catch { }
+          errorMsg = errObj.message || errObj.error || data;
+        } catch {
+          errorMsg = data;
+        }
+        updateLastAiMessage((msg) => {
+          msg.content = (msg.content || '') + `\n【系统错误】${errorMsg}`;
+        });
         setIsStreaming(false);
         break;
+      }
 
-      default:
+      default: {
+        // 🔥 处理未知事件，打印日志便于调试
+        if (event) {
+          console.log('[SSE] 未知事件:', event, data);
+        }
         break;
+      }
     }
   };
 

@@ -48,7 +48,16 @@ func (s *projectService) GetProject(ctx context.Context, id string) (*Project, e
 	if id == "" {
 		return nil, fmt.Errorf("project id cannot be empty")
 	}
-	return s.repo.Get(ctx, id)
+	project, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	sessions, err := s.ListSessionsByProject(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	project.Sessions = sessions
+	return project, nil
 }
 
 // UpdateProject 更新项目的核心字段（工作空间物理路径不可变更）
@@ -104,7 +113,18 @@ func (s *projectService) ListProjects(ctx context.Context, userID string) ([]*Pr
 	if userID == "" {
 		return nil, fmt.Errorf("user_id cannot be empty")
 	}
-	return s.repo.List(ctx, userID)
+	projects, err := s.repo.List(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for _, project := range projects {
+		sessions, err := s.ListSessionsByProject(ctx, project.ID)
+		if err != nil {
+			return nil, err
+		}
+		project.Sessions = sessions
+	}
+	return projects, err
 }
 
 // BindSession 关联会话与项目

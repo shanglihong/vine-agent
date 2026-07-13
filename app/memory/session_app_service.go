@@ -38,12 +38,3 @@ func (a *SessionAppService) CreateSession(ctx context.Context, sessionID, userID
 
 	return sess, nil
 }
-
-// ListSessions 封装 Query 查询过滤与未分类条件分支选择
-func (a *SessionAppService) ListSessions(ctx context.Context, userID, projectID string) ([]*session.Session, error) {
-	if projectID == "" {
-		return []*session.Session{}, nil
-	}
-	// 特定项目关联会话
-	return a.projectSvc.ListSessionsByProject(ctx, projectID)
-}

@@ -17,7 +17,7 @@ export default function App() {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [userID, setUserID] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('deepseek-v4-flash');
-  
+
   // ── 项目 (Project) 维度状态 ──
   const [projects, setProjects] = useState<Project[]>([]);
 
@@ -180,7 +180,7 @@ export default function App() {
   useEffect(() => {
     if (userID) {
       loadProjects();
-      loadSessions(currentSessionID, (firstId) => selectSession(firstId));
+      loadSessions(currentSessionID);
       loadProfile();
     }
   }, [userID]);
@@ -242,6 +242,7 @@ export default function App() {
   // ── 项目 (Project) 管理操作 ──
   const handleCreateProject = async (name: string): Promise<string> => {
     try {
+      console.log(userID)
       const res = await createProject(userID, name);
       await loadProjects();
       return res.id;
@@ -272,10 +273,10 @@ export default function App() {
     try {
       await deleteProject(id);
       await loadProjects();
-      
+
       const sessionsInProject = (sessions || []).filter(s => s.project_id === id);
       const sessionIdsInProject = new Set(sessionsInProject.map(s => s.id));
-      
+
       let nextActiveId = currentSessionID;
       if (sessionIdsInProject.has(currentSessionID)) {
         const remaining = (sessions || []).filter(s => !sessionIdsInProject.has(s.id));
@@ -285,7 +286,7 @@ export default function App() {
           nextActiveId = '';
         }
       }
-      
+
       await loadSessions(nextActiveId);
       if (nextActiveId) {
         selectSession(nextActiveId);
@@ -316,7 +317,7 @@ export default function App() {
     setSessionToDelete(null);
     try {
       await deleteSession(id);
-      
+
       let nextActiveId = currentSessionID;
       if (id === currentSessionID) {
         const remaining = (sessions || []).filter((s) => s.id !== id);
@@ -326,9 +327,9 @@ export default function App() {
           nextActiveId = '';
         }
       }
-      
+
       await loadSessions(nextActiveId);
-      
+
       if (nextActiveId) {
         selectSession(nextActiveId);
       } else {

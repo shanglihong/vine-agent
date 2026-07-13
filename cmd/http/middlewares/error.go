@@ -14,10 +14,7 @@ func ErrorHandler() gin.HandlerFunc {
 
 		if len(c.Errors) > 0 {
 			err := c.Errors.Last()
-			resp := dto.NewErrorResp(err)
-			if bindErr := c.ShouldBind(&resp); bindErr != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			}
+			c.JSON(http.StatusBadRequest, dto.NewErrorResp(err))
 			return
 		}
 
