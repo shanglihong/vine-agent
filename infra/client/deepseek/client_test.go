@@ -197,7 +197,7 @@ func TestClient_APIError(t *testing.T) {
 	}
 
 	// 验证错误消息是否被结构化解析
-	if !strings.Contains(err.Error(), "api error") ||
+	if !strings.Contains(err.Error(), "http error") ||
 		!strings.Contains(err.Error(), "invalid_api_key") ||
 		!strings.Contains(err.Error(), "API key 格式错误") {
 		t.Errorf("unexpected error format: %v", err)

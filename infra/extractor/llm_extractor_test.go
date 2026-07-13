@@ -88,7 +88,7 @@ func TestLLMExtractor_Extract(t *testing.T) {
 		mockChatModel := mock.NewMockChatModel(ctrl)
 		llmExt := extractor.NewLLMExtractor(mockChatModel)
 
-		expectedErr := errors.New("request deepseek api timeout")
+		expectedErr := errors.New("request deepseek http timeout")
 		mockChatModel.EXPECT().
 			Generate(ctx, gomock.Any()).
 			Return(nil, expectedErr).

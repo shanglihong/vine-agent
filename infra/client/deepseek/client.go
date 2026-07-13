@@ -102,9 +102,9 @@ type ChatCompletionResponse struct {
 
 // Choice 单个候选回答
 type Choice struct {
-	Index        int      `json:"index"`
-	Message      Message  `json:"message"`
-	FinishReason string   `json:"finish_reason"`
+	Index        int       `json:"index"`
+	Message      Message   `json:"message"`
+	FinishReason string    `json:"finish_reason"`
 	Logprobs     *Logprobs `json:"logprobs,omitempty"` // token 对数概率（若请求中开启）
 }
 
@@ -358,7 +358,7 @@ func parseErrorResponse(body io.Reader, statusCode int) error {
 	bodyBytes, _ := io.ReadAll(body)
 	var errResp ErrorResponse
 	if err := json.Unmarshal(bodyBytes, &errResp); err == nil && errResp.Error != nil {
-		return fmt.Errorf("api error (status %d, code: %s, type: %s): %s", statusCode, errResp.Error.Code, errResp.Error.Type, errResp.Error.Message)
+		return fmt.Errorf("http error (status %d, code: %s, type: %s): %s", statusCode, errResp.Error.Code, errResp.Error.Type, errResp.Error.Message)
 	}
-	return fmt.Errorf("api error (status %d): %s", statusCode, string(bodyBytes))
+	return fmt.Errorf("http error (status %d): %s", statusCode, string(bodyBytes))
 }
