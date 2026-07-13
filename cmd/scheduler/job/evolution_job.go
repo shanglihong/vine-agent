@@ -19,7 +19,7 @@ func GetEvolutionJob() *EvolutionJob {
 
 func (job *EvolutionJob) Run(ctx context.Context) {
 	// 由于是每分钟运行一次，这里取过去 2 分钟更新过的会话作为滑动时间窗
-	since := time.Now().Add(-2 * time.Minute)
+	since := time.Now().Add(-60 * time.Minute)
 
 	sessions, err := bootstrap.GetDomainContainer().SessionService.ListUpdatedSince(ctx, since)
 	if err != nil {

@@ -63,12 +63,15 @@ func (a *EvolutionAppService) TriggerEvolution(ctx context.Context, sessionIDs [
 						if msg.Role != message.RoleUser && msg.Role != message.RoleAssistant {
 							continue
 						}
+						if msg.Content == "" {
+							continue
+						}
 
-						// 过滤思考推导消息，将其 ReasoningContent 置空，只保留 Content
-						cleanMsg := msg
-						cleanMsg.ReasoningContent = ""
-
-						combinedMessages = append(combinedMessages, cleanMsg)
+						// 过滤思考推导,tool消息，将其 ReasoningContent 置空，只保留 Content
+						combinedMessages = append(combinedMessages, message.Message{
+							Role:    msg.Role,
+							Content: msg.Content,
+						})
 					}
 				}
 			}
