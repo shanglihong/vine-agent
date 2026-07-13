@@ -22,7 +22,7 @@ type RepoContainer struct {
 	Profile profile.ProfileRepository
 }
 
-func GetRepoContainer() *RepoContainer {
+func InitRepoContainer() *RepoContainer {
 	repoOnce.Do(func() {
 		repoContainer = newRepoContainer()
 	})

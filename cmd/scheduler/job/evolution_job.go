@@ -4,28 +4,24 @@ import (
 	"context"
 	"log"
 	"time"
-	"vine-agent/app/memory"
 	"vine-agent/cmd/bootstrap"
-	"vine-agent/domain/memory/session"
 )
 
-type EvolutionJob struct {
-	sessionSvc   session.SessionService
-	evolutionApp *memory.EvolutionAppService
-}
+var (
+	evolutionJob = EvolutionJob{}
+)
 
-func NewEvolutionJob(domain *bootstrap.DomainContainer, app *bootstrap.AppContainer) *EvolutionJob {
-	return &EvolutionJob{
-		sessionSvc:   domain.SessionService,
-		evolutionApp: app.EvolutionAppService,
-	}
+type EvolutionJob struct{}
+
+func GetEvolutionJob() *EvolutionJob {
+	return &evolutionJob
 }
 
 func (job *EvolutionJob) Run(ctx context.Context) {
 	// 由于是每分钟运行一次，这里取过去 2 分钟更新过的会话作为滑动时间窗
 	since := time.Now().Add(-2 * time.Minute)
 
-	sessions, err := job.sessionSvc.ListUpdatedSince(ctx, since)
+	sessions, err := bootstrap.GetDomainContainer().SessionService.ListUpdatedSince(ctx, since)
 	if err != nil {
 		log.Printf("[EvolutionJob] 获取近期更新的会话列表失败: %v", err)
 		return
@@ -39,7 +35,7 @@ func (job *EvolutionJob) Run(ctx context.Context) {
 	for i, sess := range sessions {
 		sessionIDs[i] = sess.ID
 	}
-	if err := job.evolutionApp.TriggerEvolution(ctx, sessionIDs); err != nil {
+	if err := bootstrap.GetAppContainer().EvolutionAppService.TriggerEvolution(ctx, sessionIDs); err != nil {
 		log.Printf("[EvolutionJob] 批量触发记忆演进失败: %v", err)
 	}
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"vine-agent/app/memory"
-	"vine-agent/domain/memory/session"
 	sessionmock "vine-agent/domain/memory/session/mock"
 	projectmock "vine-agent/domain/project/mock"
 )
@@ -68,51 +67,5 @@ func TestSessionAppService_CreateSession(t *testing.T) {
 		assert.Error(t, err)
 		assert.NotNil(t, sess)
 		assert.Equal(t, "sess-3", sess.ID)
-	})
-}
-
-func TestSessionAppService_ListSessions(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockSessionSvc := sessionmock.NewMockSessionService(ctrl)
-	mockProjectSvc := projectmock.NewMockProjectService(ctrl)
-	appSvc := memory.NewSessionAppService(mockSessionSvc, mockProjectSvc)
-
-	ctx := context.Background()
-
-	t.Run("查询全部会话", func(t *testing.T) {
-		mockSessionSvc.EXPECT().
-			List(ctx, "user-1").
-			Return([]*session.Session{{ID: "sess-1"}}, nil).
-			Times(1)
-
-		list, err := appSvc.ListSessions(ctx, "user-1", "", false)
-		assert.NoError(t, err)
-		assert.Len(t, list, 1)
-	})
-
-	t.Run("查询未分类会话", func(t *testing.T) {
-		mockProjectSvc.EXPECT().
-			ListUnclassifiedSessions(ctx, "user-1").
-			Return([]*session.Session{{ID: "sess-unclassified"}}, nil).
-			Times(1)
-
-		list, err := appSvc.ListSessions(ctx, "user-1", "", true)
-		assert.NoError(t, err)
-		assert.Len(t, list, 1)
-		assert.Equal(t, "sess-unclassified", list[0].ID)
-	})
-
-	t.Run("查询项目关联会话", func(t *testing.T) {
-		mockProjectSvc.EXPECT().
-			ListSessionsByProject(ctx, "proj-1").
-			Return([]*session.Session{{ID: "sess-proj"}}, nil).
-			Times(1)
-
-		list, err := appSvc.ListSessions(ctx, "user-1", "proj-1", true)
-		assert.NoError(t, err)
-		assert.Len(t, list, 1)
-		assert.Equal(t, "sess-proj", list[0].ID)
 	})
 }

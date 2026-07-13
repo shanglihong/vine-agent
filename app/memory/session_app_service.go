@@ -40,16 +40,10 @@ func (a *SessionAppService) CreateSession(ctx context.Context, sessionID, userID
 }
 
 // ListSessions 封装 Query 查询过滤与未分类条件分支选择
-func (a *SessionAppService) ListSessions(ctx context.Context, userID, projectID string, hasProjectIDQuery bool) ([]*session.Session, error) {
-	if hasProjectIDQuery {
-		if projectID == "" {
-			// 未分类会话
-			return a.projectSvc.ListUnclassifiedSessions(ctx, userID)
-		}
-		// 特定项目关联会话
-		return a.projectSvc.ListSessionsByProject(ctx, projectID)
+func (a *SessionAppService) ListSessions(ctx context.Context, userID, projectID string) ([]*session.Session, error) {
+	if projectID == "" {
+		return []*session.Session{}, nil
 	}
-
-	// 向下兼容，拉取该用户的所有会话
-	return a.sessionSvc.List(ctx, userID)
+	// 特定项目关联会话
+	return a.projectSvc.ListSessionsByProject(ctx, projectID)
 }

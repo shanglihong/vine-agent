@@ -1,201 +1,81 @@
-package router1
+package router
 
 import (
-	"encoding/json"
-	"errors"
-	"net/http"
-	"time"
+	"context"
+	"vine-agent/cmd/bootstrap"
+	"vine-agent/cmd/http/dto"
 
 	"vine-agent/domain/project"
 )
 
-// 1. POST /http/projects
-func (h *APIHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
-	if h.setCORS(w, r) {
-		return
-	}
+var (
+	projectHandler = ProjectHandler{}
+)
 
-	var req struct {
-		UserID      string            `json:"user_id"`
-		Name        string            `json:"name"`
-		Description string            `json:"description"`
-		Metadata    map[string]string `json:"metadata"`
-	}
+type ProjectHandler struct{}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.UserID == "" || req.Name == "" {
-		h.respondError(w, http.StatusBadRequest, "user_id and name are required")
-		return
-	}
-
-	proj, err := h.projectAppSvc.CreateProject(r.Context(), req.UserID, req.Name, req.Description, req.Metadata)
-	if err != nil {
-		h.respondError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	h.respondJSON(w, http.StatusOK, map[string]string{
-		"id":     proj.ID,
-		"status": "created",
-	})
+func GetProjectHandler() *ProjectHandler {
+	return &projectHandler
 }
 
-// 2. GET /http/projects?user_id=xxx
-func (h *APIHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
-	if h.setCORS(w, r) {
-		return
-	}
-
-	userID := r.URL.Query().Get("user_id")
-	if userID == "" {
-		h.respondError(w, http.StatusBadRequest, "missing user_id query parameter")
-		return
-	}
-
-	list, err := h.projectAppSvc.ListProjects(r.Context(), userID)
+func (h *ProjectHandler) CreateProject(ctx context.Context, req dto.CreatProjectReq) (dto.ProjectResp, error) {
+	proj, err := bootstrap.GetAppContainer().ProjectAppService.CreateProject(ctx, req.UserID, req.Name, req.Description, req.Metadata)
 	if err != nil {
-		h.respondError(w, http.StatusInternalServerError, err.Error())
-		return
+		return dto.ProjectResp{}, err
 	}
-
-	h.respondJSON(w, http.StatusOK, list)
+	return dto.ProjectResp{
+		ID:     proj.ID,
+		Status: "created",
+	}, nil
 }
 
-// 3. GET /http/projects/{id}
-func (h *APIHandler) GetProject(w http.ResponseWriter, r *http.Request) {
-	if h.setCORS(w, r) {
-		return
-	}
-
-	projectID := r.PathValue("id")
-	if projectID == "" {
-		h.respondError(w, http.StatusBadRequest, "missing project id in path")
-		return
-	}
-
-	proj, err := h.projectAppSvc.GetProject(r.Context(), projectID)
-	if err != nil {
-		if errors.Is(err, project.ErrProjectNotFound) {
-			h.respondError(w, http.StatusNotFound, "project not found")
-			return
-		}
-		h.respondError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	h.respondJSON(w, http.StatusOK, proj)
+func (h *ProjectHandler) ListProjects(ctx context.Context, req dto.ProjectUserIdReq) ([]*project.Project, error) {
+	list, err := bootstrap.GetAppContainer().ProjectAppService.ListProjects(ctx, req.UserID)
+	return list, err
 }
 
-// 4. PUT /http/projects/{id}
-func (h *APIHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
-	if h.setCORS(w, r) {
-		return
-	}
-
-	projectID := r.PathValue("id")
-	if projectID == "" {
-		h.respondError(w, http.StatusBadRequest, "missing project id in path")
-		return
-	}
-
-	var req struct {
-		Name        string            `json:"name"`
-		Description string            `json:"description"`
-		Metadata    map[string]string `json:"metadata"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Name == "" {
-		h.respondError(w, http.StatusBadRequest, "name is required")
-		return
-	}
-
-	_, err := h.projectAppSvc.UpdateProject(r.Context(), projectID, req.Name, req.Description, req.Metadata)
-	if err != nil {
-		if errors.Is(err, project.ErrProjectNotFound) {
-			h.respondError(w, http.StatusNotFound, "project not found")
-			return
-		}
-		h.respondError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	h.respondJSON(w, http.StatusOK, map[string]string{"status": "updated"})
+func (h *ProjectHandler) GetProject(ctx context.Context, req dto.ProjectIdReq) (*project.Project, error) {
+	proj, err := bootstrap.GetAppContainer().ProjectAppService.GetProject(ctx, req.ProjectId)
+	return proj, err
 }
 
-// 5. DELETE /http/projects/{id}
-func (h *APIHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {
-	if h.setCORS(w, r) {
-		return
-	}
-
-	projectID := r.PathValue("id")
-	if projectID == "" {
-		h.respondError(w, http.StatusBadRequest, "missing project id in path")
-		return
-	}
-
-	err := h.projectAppSvc.DeleteProject(r.Context(), projectID)
+func (h *ProjectHandler) UpdateProject(ctx context.Context, req dto.ProjectUpdateReq) (dto.ProjectResp, error) {
+	_, err := bootstrap.GetAppContainer().ProjectAppService.UpdateProject(ctx, req.ProjectId, req.Name, req.Description, nil)
 	if err != nil {
-		if errors.Is(err, project.ErrProjectNotFound) {
-			h.respondError(w, http.StatusNotFound, "project not found")
-			return
-		}
-		h.respondError(w, http.StatusInternalServerError, err.Error())
-		return
+		return dto.ProjectResp{}, err
 	}
-
-	h.respondJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+	return dto.ProjectResp{
+		ID:     req.ProjectId,
+		Status: "updated",
+	}, nil
 }
 
-// 6. GET /http/projects/{id}/sessions
-func (h *APIHandler) ListProjectSessions(w http.ResponseWriter, r *http.Request) {
-	if h.setCORS(w, r) {
-		return
-	}
-
-	projectID := r.PathValue("id")
-	if projectID == "" {
-		h.respondError(w, http.StatusBadRequest, "missing project id in path")
-		return
-	}
-
-	sessions, err := h.projectAppSvc.ListSessionsByProject(r.Context(), projectID)
+func (h *ProjectHandler) DeleteProject(ctx context.Context, req dto.ProjectIdReq) (dto.ProjectResp, error) {
+	err := bootstrap.GetAppContainer().ProjectAppService.DeleteProject(ctx, req.ProjectId)
 	if err != nil {
-		h.respondError(w, http.StatusInternalServerError, err.Error())
-		return
+		return dto.ProjectResp{}, err
+	}
+	return dto.ProjectResp{
+		ID:     req.ProjectId,
+		Status: "deleted",
+	}, nil
+}
+
+func (h *ProjectHandler) ListProjectSessions(ctx context.Context, req dto.ProjectIdReq) ([]dto.SessResp, error) {
+	sessions, err := bootstrap.GetAppContainer().ProjectAppService.ListSessionsByProject(ctx, req.ProjectId)
+	if err != nil {
+		return nil, err
 	}
 
-	type sessResp struct {
-		ID        string    `json:"id"`
-		UserID    string    `json:"user_id"`
-		Name      string    `json:"name"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Status    string    `json:"status,omitempty"`
-	}
-
-	list := make([]sessResp, 0, len(sessions))
+	list := make([]dto.SessResp, 0, len(sessions))
 	for _, s := range sessions {
-		status := ""
-		if s.Metadata != nil {
-			status = s.Metadata["status"]
-		}
-		list = append(list, sessResp{
+		list = append(list, dto.SessResp{
 			ID:        s.ID,
 			UserID:    s.UserID,
 			Name:      s.Name,
 			UpdatedAt: s.UpdatedAt,
-			Status:    status,
+			Status:    s.GetStatus(),
 		})
 	}
-
-	h.respondJSON(w, http.StatusOK, list)
+	return list, nil
 }

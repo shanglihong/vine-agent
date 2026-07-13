@@ -24,7 +24,11 @@ type DomainContainer struct {
 	ProfileService   profile.ProfileService
 }
 
-func GetDomainContainer(repoContainer *RepoContainer, chatModel chat.ChatModel) *DomainContainer {
+func GetDomainContainer() *DomainContainer {
+	return domainContainer
+}
+
+func InitDomainContainer(repoContainer *RepoContainer, chatModel chat.ChatModel) *DomainContainer {
 	domainOnce.Do(func() {
 		domainContainer = newDomainContainer(repoContainer, chatModel)
 	})

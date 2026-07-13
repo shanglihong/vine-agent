@@ -23,8 +23,12 @@ type AppContainer struct {
 	ProjectAppService   *projectapp.ProjectAppService
 }
 
-func GetAppContainer(domainContainer *DomainContainer, chatModel chat.ChatModel) *AppContainer {
-	domainOnce.Do(func() {
+func GetAppContainer() *AppContainer {
+	return appContainer
+}
+
+func InitAppContainer(domainContainer *DomainContainer, chatModel chat.ChatModel) *AppContainer {
+	appOnce.Do(func() {
 		appContainer = newAppContainer(domainContainer, chatModel)
 	})
 	return appContainer

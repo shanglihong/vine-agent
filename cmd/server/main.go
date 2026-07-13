@@ -2,12 +2,9 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"os"
-	"strings"
-	"time"
-	"vine-agent/cmd/api"
 	"vine-agent/cmd/bootstrap"
+	"vine-agent/cmd/http"
 	"vine-agent/cmd/scheduler"
 	"vine-agent/domain/chat"
 	"vine-agent/domain/chat/chat_model"
@@ -19,41 +16,20 @@ func main() {
 	log.SetPrefix("[vine-agent] ")
 	log.SetOutput(os.Stdout)
 
-	// 依赖注入
+	// 依赖注入，在cmd层级可以通过GetXxxContainer快速获取已经注入的服务
 	chatModel := getChatModel()
-	repoContainer := bootstrap.GetRepoContainer()
-	domainContainer := bootstrap.GetDomainContainer(repoContainer, chatModel)
-	appContainer := bootstrap.GetAppContainer(domainContainer, chatModel)
+	repoContainer := bootstrap.InitRepoContainer()
+	domainContainer := bootstrap.InitDomainContainer(repoContainer, chatModel)
+	_ = bootstrap.InitAppContainer(domainContainer, chatModel)
 
 	// 定时任务
-	jobScheduler := scheduler.NewScheduler(domainContainer, appContainer)
-	jobScheduler.Start()
+	jobScheduler := scheduler.New().
+		Register().
+		Start()
 	defer jobScheduler.Stop()
 
-	// http-api
-	handler := api.NewAPIHandler(domainContainer, appContainer)
-	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux)
-
-	// 带请求日志的中间件
-	loggingMux := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		log.Printf("--> %s %s", r.Method, r.URL.Path)
-		mux.ServeHTTP(w, r)
-		log.Printf("<-- %s %s (elapsed %v)", r.Method, r.URL.Path, time.Since(start))
-	})
-
-	port := bootstrap.GetConfig().Server.Port
-	if port != "" && !strings.HasPrefix(port, ":") {
-		port = ":" + port
-	}
-	if port == "" {
-		port = ":8080"
-	}
-	log.Printf("HTTP 接口服务成功启动，监听端口 %s ...\n", port)
-	if err := http.ListenAndServe(port, loggingMux); err != nil {
-		log.Fatalf("HTTP 服务运行异常退出: %v", err)
-	}
+	// http
+	http.New().Register().Run()
 }
 
 func getChatModel() chat.ChatModel {

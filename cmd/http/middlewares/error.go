@@ -18,6 +18,7 @@ func ErrorHandler() gin.HandlerFunc {
 			if bindErr := c.ShouldBind(&resp); bindErr != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			}
+			return
 		}
 
 	}
